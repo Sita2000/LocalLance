@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "914345387802",
+    "project_id": "locallance-dda4a",
+    "storage_bucket": "locallance-dda4a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:914345387802:android:6b834d8f1683c015812ea3",
+        "android_client_info": {
+          "package_name": "com.example.mylocallance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKqBDTBTgHoMxObYOQEle-Hk2AgvTl-7g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
