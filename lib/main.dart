@@ -10,6 +10,7 @@ import 'package:mylocallance/screens/Freelancer/payment_screen.dart';
 import 'package:mylocallance/screens/Freelancer/profile_screen.dart';
 import 'package:mylocallance/screens/Freelancer/review_screen.dart';
 import 'package:mylocallance/screens/home_screen/home.dart';
+import 'package:mylocallance/screens/job_recruiter/home_screen.dart';
 import 'screens/job_recruiter/login_screen.dart';
 import 'firebase_options.dart';
 // import 'screens/splash_screen.dart';
@@ -41,7 +42,7 @@ class MyApp extends StatelessWidget {
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
             useMaterial3: true,
           ),
-          home: RecruiterLoginScreen(),
+          home: RecruiterHomePage(),
         );
       },
     );
