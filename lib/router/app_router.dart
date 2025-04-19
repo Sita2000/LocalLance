@@ -7,7 +7,7 @@ import 'package:mylocallance/views/freelancer/notifications.dart';
 import 'package:mylocallance/views/freelancer/payment_screen.dart';
 import 'package:mylocallance/views/freelancer/profile_screen.dart';
 import 'package:mylocallance/views/freelancer/review_screen.dart';
-import 'package:mylocallance/views/job_recruiter/login_screen.dart';
+import 'package:mylocallance/views/auth/login_screen.dart';
 
 // Simulated role-checking function. Replace with your real logic.
 Future<String?> getUserRole() async {
@@ -17,7 +17,7 @@ Future<String?> getUserRole() async {
 }
 
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/freelancer/dashboard',
+  initialLocation: '/login',
   redirect: (context, state) async {
     final role = await getUserRole();
     if (role == 'freelancer') {
@@ -30,7 +30,7 @@ final GoRouter appRouter = GoRouter(
   routes: [
     GoRoute(
       path: '/login',
-      builder: (context, state) => RecruiterLoginScreen(),
+      builder: (context, state) => LoginScreenV2(),
     ),
     GoRoute(
       path: '/freelancer/dashboard',
@@ -68,7 +68,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/recruiter/login',
-      builder: (context, state) => RecruiterLoginScreen(),
+      builder: (context, state) => LoginScreenV2(),
     ),
     // Add more recruiter routes here as needed
   ],

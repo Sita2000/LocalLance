@@ -1,24 +1,23 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mylocallance/views/freelancer/chatlist_screen.dart';
-import 'package:mylocallance/views/freelancer/chatroom.dart';
-import 'package:mylocallance/views/freelancer/dashboard.dart';
-import 'package:mylocallance/views/freelancer/job_details_screen.dart';
-import 'package:mylocallance/views/freelancer/notifications.dart';
-import 'package:mylocallance/views/freelancer/payment_screen.dart';
-import 'package:mylocallance/views/freelancer/profile_screen.dart';
-import 'package:mylocallance/views/freelancer/review_screen.dart';
-import 'package:mylocallance/views/home.dart';
-import 'package:mylocallance/views/job_recruiter/login_screen.dart';
+
 
 import 'firebase_options.dart';
-import 'package:go_router/go_router.dart';
 import 'router/app_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(
+    ProviderScope(
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

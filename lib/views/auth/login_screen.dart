@@ -1,14 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth_screen/controllers/user_controller.dart';
+import '../../db/models/user_model.dart';
+import '../../../auth_screen/controllers/auth_controller.dart';
 
-class RecruiterLoginScreen extends StatelessWidget {
-  const RecruiterLoginScreen({super.key});
+class LoginScreenV2 extends ConsumerWidget {
+  const LoginScreenV2({super.key});
+
+  void _handleGoogleSignIn(BuildContext context, WidgetRef ref, String role) async {
+    final signIn = ref.read(googleSignInProvider);
+    final userNotifier = ref.read(userProvider.notifier);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    final cred = await signIn();
+    if (cred != null && cred.user != null) {
+      final user = cred.user!;
+      // Check if user exists in Firestore
+      final existing = await ref.read(userDatabaseProvider).getUser(user.uid);
+      if (existing == null) {
+        // Create new user in Firestore
+        final appUser = AppUser(
+          uid: user.uid,
+          name: user.displayName ?? '',
+          email: user.email ?? '',
+          role: role,
+          profileImageUrl: user.photoURL,
+        );
+        await userNotifier.createUser(appUser);
+      } else if (existing.role != role) {
+        // Optionally handle role mismatch
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Account already exists as ${existing.role}')),
+        );
+        return;
+      }
+      // Navigate to home or role-specific screen
+      Navigator.of(context).pushReplacementNamed('/home');
+    } else {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Google sign-in failed.')),
+      );
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    // Get screen dimensions for responsive layout
+  Widget build(BuildContext context, WidgetRef ref) {
     final screenSize = MediaQuery.of(context).size;
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -72,7 +111,7 @@ class RecruiterLoginScreen extends StatelessWidget {
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton.icon(
-                            onPressed: () {},
+                            onPressed: () => _handleGoogleSignIn(context, ref, 'freelancer'),
                             icon: Image.network(
                               'https://upload.wikimedia.org/wikipedia/commons/0/09/IOS_Google_icon.png',
                               height: 24,
@@ -102,7 +141,7 @@ class RecruiterLoginScreen extends StatelessWidget {
                           width: double.infinity,
                           height: 50,
                           child: ElevatedButton.icon(
-                            onPressed: () {},
+                            onPressed: () => _handleGoogleSignIn(context, ref, 'job_recruiter'),
                             icon: Image.network(
                               'https://upload.wikimedia.org/wikipedia/commons/0/09/IOS_Google_icon.png',
                               height: 24,
