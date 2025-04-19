@@ -11,6 +11,7 @@ import 'package:mylocallance/views/freelancer/profile_screen.dart';
 import 'package:mylocallance/views/freelancer/review_screen.dart';
 import 'package:mylocallance/views/home.dart';
 import 'package:mylocallance/views/job_recruiter/login_screen.dart';
+
 import 'firebase_options.dart';
 import 'package:go_router/go_router.dart';
 import 'router/app_router.dart';
@@ -38,6 +39,7 @@ class MyApp extends StatelessWidget {
             useMaterial3: true,
           ),
           routerConfig: appRouter,
+
         );
       },
     );
