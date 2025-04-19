@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/home/viku/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/viku/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/viku/college-projects/LocalLance/android/app/.cxx/Debug/3xwr6lo4/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/viku/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/viku/college-projects/LocalLance/android/app/.cxx/Debug/3xwr6lo4/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}
