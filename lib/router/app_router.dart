@@ -70,6 +70,11 @@ final GoRouter appRouter = GoRouter(
       path: '/recruiter/login',
       builder: (context, state) => LoginScreenV2(),
     ),
+     GoRoute(
+          path: 'job_details',
+          builder: (context, state) => JobDetailsScreen(),
+        ),
+     
     // Add more recruiter routes here as needed
   ],
 );
