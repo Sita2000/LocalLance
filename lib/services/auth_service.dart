@@ -1,12 +1,14 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logger/logger.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final logger = Logger();
 
   Future<UserCredential?> signInWithGoogle() async {
     try {
@@ -22,7 +24,7 @@ class AuthService {
 
       return await _auth.signInWithCredential(credential);
     } catch (e) {
-      print('Google Sign-In error: $e');
+      logger.e('Google Sign-In Error: $e');
       return null;
     }
   }
