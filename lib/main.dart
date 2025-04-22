@@ -1,24 +1,23 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-// import 'package:mylocallance/screens/Freelancer/chatlist_screen.dart';
-// import 'package:mylocallance/screens/Freelancer/chatroom.dart';
-// import 'package:mylocallance/screens/Freelancer/dashboard.dart';
-// import 'package:mylocallance/screens/Freelancer/job_details_screen.dart';
-// import 'package:mylocallance/screens/Freelancer/notifications.dart';
-// import 'package:mylocallance/screens/Freelancer/payment_screen.dart';
-// import 'package:mylocallance/screens/Freelancer/profile_screen.dart';
-// import 'package:mylocallance/screens/Freelancer/review_screen.dart';
-// import 'package:mylocallance/screens/home_screen/home.dart';
-// import 'package:mylocallance/screens/job_recruiter/home_screen.dart';
-// import 'screens/job_recruiter/login_screen.dart';
-// import 'firebase_options.dart';
-import 'package:go_router/go_router.dart';
+
+
+import 'firebase_options.dart';
 import 'router/app_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(
+    ProviderScope(
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

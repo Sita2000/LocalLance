@@ -1,12 +1,170 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class RecruiterHomePage extends StatelessWidget {
+class RecruiterHomePage extends StatefulWidget {
   const RecruiterHomePage({super.key});
+
+  @override
+  State<RecruiterHomePage> createState() => _RecruiterHomePageState();
+}
+
+class _RecruiterHomePageState extends State<RecruiterHomePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
+  void _showJobRecruiterDrawer(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation1, animation2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              height: MediaQuery.of(context).size.height,
+              width: MediaQuery.of(context).size.width * 0.85,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                ),
+              ),
+              child: _buildDrawerContent(context),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          )),
+          child: child,
+        );
+      },
+    );
+  }
+
+  Widget _buildDrawerContent(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // Profile section
+              Center(
+                child: Column(
+                  children: [
+                    // Profile image
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF1E3A5F),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    // Name
+                    Text(
+                      'Job Recruiter Name',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    // Email
+                    Text(
+                      'Student@gmail.com',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    // Edit profile button
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E3A5F),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Edit Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            children: [
+              _buildDrawerItem(Icons.person_outline, 'Profile Overview'),
+              _buildDrawerItem(Icons.work_outline, 'Post Jobs'),
+              _buildDrawerItem(Icons.business_center_outlined, 'My Jobs'),
+              _buildDrawerItem(Icons.description_outlined, 'Proposals/Applications'),
+              _buildDrawerItem(Icons.message_outlined, 'Message'),
+              _buildDrawerItem(Icons.people_outline, 'Hired Freelancers'),
+              _buildDrawerItem(Icons.star_outline, 'Review & ratings'),
+              _buildDrawerItem(Icons.payment_outlined, 'Payments'),
+              _buildDrawerItem(Icons.subscriptions_outlined, 'Subscriptions'),
+              _buildDrawerItem(Icons.settings_outlined, 'Settings'),
+              _buildDrawerItem(Icons.help_outline, 'Help & Support'),
+              _buildDrawerItem(Icons.logout, 'Logout'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDrawerItem(IconData icon, String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF1E3A5F),
+          ),
+          SizedBox(width: 16),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
@@ -48,15 +206,20 @@ class RecruiterHomePage extends StatelessWidget {
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.menu,
-                          color: Colors.white,
+                      GestureDetector(
+                        onTap: () {
+                          _showJobRecruiterDrawer(context);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.menu,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],

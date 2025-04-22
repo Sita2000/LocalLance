@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 import 'auth/login.dart';
 import 'auth/signup.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MyLocalLance'),
         backgroundColor: const Color(0xFF1E3A5F),
-        foregroundColor: Colors.white,
+        foregroundColor: const Color.fromARGB(0,0,0,0)
       ),
-      body: Center(
+      body: SingleChildScrollView(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
