@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logger/logger.dart';
 import '../../auth_screen/controllers/user_controller.dart';
 import '../../db/models/user_model.dart';
 import '../../../auth_screen/controllers/auth_controller.dart';
 
 class LoginScreenV2 extends ConsumerWidget {
-  const LoginScreenV2({super.key});
+  final logger = Logger();
+  LoginScreenV2({super.key});
 
   void _handleGoogleSignIn(BuildContext context, WidgetRef ref, String role) async {
     final signIn = ref.read(googleSignInProvider);
@@ -35,8 +38,26 @@ class LoginScreenV2 extends ConsumerWidget {
         );
         return;
       }
+      logger.d('User signed in: ${user.displayName}');
+      logger.d("User Role: $role");
+      if(!context.mounted){
+        // show snackbar
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('User not mounted')),
+        );
+        return;
+      }
+      if(role == 'job_recruiter') {
+        // Navigate to recruiter-specific screen
+        context.go('/freelancer/dashboard');
+        return;
+      } else if(role == 'freelancer') {
+        // Navigate to freelancer-specific screen
+        context.go('/freelancer/dashboard');
+        return;
+      }
       // Navigate to home or role-specific screen
-      Navigator.of(context).pushReplacementNamed('/home');
+      context.go('/home');
     } else {
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Google sign-in failed.')),
