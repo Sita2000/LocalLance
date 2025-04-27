@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mylocallance/views/job_recruiter/job_post_screen.dart';
+import 'package:mylocallance/views/job_recruiter/myjob_screen.dart';
+import 'package:mylocallance/views/job_recruiter/profile_screen.dart';
 
 class RecruiterHomePage extends StatefulWidget {
+  static const String routePath = "/recruiter_home";
+  static const String routeName = "Recruiter Home";
   const RecruiterHomePage({super.key});
 
   @override
@@ -11,6 +17,8 @@ class RecruiterHomePage extends StatefulWidget {
 
 class _RecruiterHomePageState extends State<RecruiterHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  
+  get jobId => null;
   
   void _showJobRecruiterDrawer(BuildContext context) {
     showGeneralDialog(
@@ -383,24 +391,25 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
             ),
             
             // Bottom Navigation Bar
-            Container(
-              height: 70,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1E3A5F),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(Icons.home, "Home", true),
-                  _buildNavItem(Icons.work, "My Job", false),
-                  _buildNavItem(Icons.person, "Profile", false),
-                ],
-              ),
-            ),
+            // Container(
+            //   height: 70,
+            //   decoration: const BoxDecoration(
+            //     color: Color.fromARGB(255, 255, 255, 255),
+            //     borderRadius: BorderRadius.only(
+            //       topLeft: Radius.circular(16),
+            //       topRight: Radius.circular(16),
+            //     ),
+            //   ),
+            //   child: Row(
+            //     mainAxisAlignment: MainAxisAlignment.spaceAround,
+            //     children: [
+            //       _buildNavItem(Icons.home, "Home", true, onTap:(){ context.pushNamed(RecruiterHomePage.routeName);}),
+            //       _buildNavItem(Icons.work, "My Job", false, onTap:(){ context.pushNamed(MyJobScreen.routeName);}),
+            //       _buildNavItem(Icons.add, "Add Job", false, onTap:(){ context.go(JobPostScreen.routePath);}),
+            //       _buildNavItem(Icons.person, "Profile", false, onTap:(){ context.pushNamed(RecruiterProfileScreen.routeName);}),
+            //     ],
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -451,173 +460,199 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
     int price, {
     required bool isCompleted,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Posted by section
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Posted by $postedBy",
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isCompleted
-                        ? const Color(0xFFEEF6F0)
-                        : const Color(0xFFFAEEEE),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    status,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      color: isCompleted
-                          ? Colors.green
-                          : Colors.red,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            
-            // Job title and icon
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E3A5F),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.shopping_bag,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    jobTitle,
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            
-            // Category
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 4,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                category,
-                style: GoogleFonts.poppins(
-                  fontSize: 10,
-                  color: Colors.blue.shade800,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            
-            // Description
-            Text(
-              description,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            
-            // Date info
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  dateInfo,
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    color: Colors.grey,
-                  ),
-                ),
-                Text(
-                  "\$ $price",
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
+    return GestureDetector(
+      onTap: () {
+        context.goNamed('jobDetails', pathParameters: {'jobId': jobId});
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Posted by section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Posted by $postedBy",
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                          ? const Color(0xFFEEF6F0)
+                          : const Color(0xFFFAEEEE),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      status,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: isCompleted
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // Job title and icon
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A5F),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.shopping_bag,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      jobTitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              
+              // Category
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  category,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: Colors.blue.shade800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // Description
+              Text(
+                description,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              // Date info
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    dateInfo,
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  Text(
+                    "\$ $price",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
   
   // Helper method to build navigation items
-  Widget _buildNavItem(IconData icon, String label, bool isSelected) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: isSelected ? Colors.white : Colors.white,
+  Widget _buildNavItem(IconData icon, String label, bool isSelected, {VoidCallback? onTap}) {
+    final selectedColor = const Color(0xFF1E3A5F);
+    final unselectedColor = Colors.grey[400];
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? selectedColor : unselectedColor,
+            size: 24,
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: isSelected ? selectedColor : unselectedColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RecruiterJobDetailsScreen extends StatelessWidget {
+  final String jobId;
+  const RecruiterJobDetailsScreen({required this.jobId, Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Fetch job details using jobId, or display job info
+    return Scaffold(
+      appBar: AppBar(title: Text('Job Details')),
+      body: Center(
+        child: Text('Job ID: $jobId'),
+      ),
     );
   }
 }

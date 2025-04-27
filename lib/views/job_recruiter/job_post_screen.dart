@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 class JobPostScreen extends StatefulWidget {
+  static const String routePath = '/job_post';
+  static const String routeName = 'Job Post';
   const JobPostScreen({super.key});
 
   @override
@@ -53,10 +54,6 @@ class _JobPostScreenState extends State<JobPostScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E3A5F),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
         title: Text(
           'Post Job',
           style: GoogleFonts.poppins(
@@ -378,36 +375,7 @@ class _JobPostScreenState extends State<JobPostScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF1E3A5F),
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.work),
-            label: 'My Job',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Add Job',
-          ),
-        ],
-        currentIndex: 3, // Add Job is selected
-        onTap: (index) {
-          // Handle navigation
-        },
-      ),
+      
     );
   }
 }
