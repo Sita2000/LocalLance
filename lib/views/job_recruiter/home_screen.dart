@@ -5,22 +5,31 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mylocallance/views/job_recruiter/job_post_screen.dart';
 import 'package:mylocallance/views/job_recruiter/myjob_screen.dart';
 import 'package:mylocallance/views/job_recruiter/profile_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth_screen/controllers/auth_controller.dart';
+import '../../controllers/job_controller.dart';
+import '../../db/models/job_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
-class RecruiterHomePage extends StatefulWidget {
+class RecruiterHomePage extends ConsumerStatefulWidget {
   static const String routePath = "/recruiter_home";
   static const String routeName = "Recruiter Home";
   const RecruiterHomePage({super.key});
 
   @override
-  State<RecruiterHomePage> createState() => _RecruiterHomePageState();
+  ConsumerState<RecruiterHomePage> createState() => _RecruiterHomePageState();
 }
 
-class _RecruiterHomePageState extends State<RecruiterHomePage> {
+class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
-  get jobId => null;
+  String? _searchQuery;
+  bool _isLoading = false;
   
   void _showJobRecruiterDrawer(BuildContext context) {
+    // Get current user
+    final authState = ref.watch(authStateProvider);
+    
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -42,7 +51,7 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
                   bottomLeft: Radius.circular(20),
                 ),
               ),
-              child: _buildDrawerContent(context),
+              child: _buildDrawerContent(context, authState),
             ),
           ),
         );
@@ -62,115 +71,218 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
     );
   }
 
-  Widget _buildDrawerContent(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              // Profile section
-              Center(
-                child: Column(
-                  children: [
-                    // Profile image
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF1E3A5F),
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    // Name
-                    Text(
-                      'Job Recruiter Name',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    // Email
-                    Text(
-                      'Student@gmail.com',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    // Edit profile button
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E3A5F),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'Edit Profile',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.white,
+  Widget _buildDrawerContent(BuildContext context, AsyncValue<dynamic> authState) {
+    return authState.when(
+      data: (user) {
+        if (user == null) {
+          return _buildSignInNeeded(context);
+        }
+        
+        // User is logged in, show profile drawer
+        return Column(
+          children: [
+            Container(
+              padding: EdgeInsets.all(20.0),
+              child: Column(
+                children: [
+                  // Profile section
+                  Center(
+                    child: Column(
+                      children: [
+                        // Profile image
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF1E3A5F),
+                            image: user.photoURL != null 
+                              ? DecorationImage(
+                                  image: NetworkImage(user.photoURL!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                          ),
+                          child: user.photoURL == null 
+                            ? Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 40,
+                              )
+                            : null,
                         ),
-                      ),
+                        SizedBox(height: 10),
+                        // Name
+                        Text(
+                          user.displayName ?? 'Job Recruiter',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        // Email
+                        Text(
+                          user.email ?? 'No email',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        // Edit profile button
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.pop(context); // Close drawer
+                            context.pushNamed(RecruiterProfileScreen.routeName);
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E3A5F),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Edit Profile',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                children: [
+                  _buildDrawerItem(Icons.person_outline, 'Profile Overview', 
+                    onTap: () {
+                      Navigator.pop(context); // Close drawer
+                      context.pushNamed(RecruiterProfileScreen.routeName);
+                    }
+                  ),
+                  _buildDrawerItem(Icons.work_outline, 'Post Jobs', 
+                    onTap: () {
+                      Navigator.pop(context); // Close drawer
+                      context.push(JobPostScreen.routePath);
+                    }
+                  ),
+                  _buildDrawerItem(Icons.business_center_outlined, 'My Jobs', 
+                    onTap: () {
+                      Navigator.pop(context); // Close drawer
+                      context.pushNamed(MyJobScreen.routeName);
+                    }
+                  ),
+                  _buildDrawerItem(Icons.description_outlined, 'Proposals/Applications'),
+                  _buildDrawerItem(Icons.message_outlined, 'Message'),
+                  _buildDrawerItem(Icons.people_outline, 'Hired Freelancers'),
+                  _buildDrawerItem(Icons.star_outline, 'Review & ratings'),
+                  _buildDrawerItem(Icons.payment_outlined, 'Payments'),
+                  _buildDrawerItem(Icons.subscriptions_outlined, 'Subscriptions'),
+                  _buildDrawerItem(Icons.settings_outlined, 'Settings'),
+                  _buildDrawerItem(Icons.help_outline, 'Help & Support'),
+                  _buildDrawerItem(Icons.logout, 'Logout', 
+                    onTap: () async {
+                      try {
+                        await ref.read(authControllerProvider.notifier).signOut();
+                        if (context.mounted) {
+                          Navigator.pop(context); // Close drawer
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Logged out successfully')),
+                          );
+                          context.go('/login');
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Error signing out: $e")),
+                        );
+                      }
+                    }
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Text('Error loading profile: ${error.toString()}'),
+      ),
+    );
+  }
+
+  Widget _buildSignInNeeded(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.account_circle, size: 80, color: Colors.grey),
+        SizedBox(height: 16),
+        Text(
+          'Sign in to Access Your Profile',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.symmetric(horizontal: 20),
-            children: [
-              _buildDrawerItem(Icons.person_outline, 'Profile Overview'),
-              _buildDrawerItem(Icons.work_outline, 'Post Jobs'),
-              _buildDrawerItem(Icons.business_center_outlined, 'My Jobs'),
-              _buildDrawerItem(Icons.description_outlined, 'Proposals/Applications'),
-              _buildDrawerItem(Icons.message_outlined, 'Message'),
-              _buildDrawerItem(Icons.people_outline, 'Hired Freelancers'),
-              _buildDrawerItem(Icons.star_outline, 'Review & ratings'),
-              _buildDrawerItem(Icons.payment_outlined, 'Payments'),
-              _buildDrawerItem(Icons.subscriptions_outlined, 'Subscriptions'),
-              _buildDrawerItem(Icons.settings_outlined, 'Settings'),
-              _buildDrawerItem(Icons.help_outline, 'Help & Support'),
-              _buildDrawerItem(Icons.logout, 'Logout'),
-            ],
+        SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context); // Close drawer
+            context.go('/login');
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1E3A5F),
+          ),
+          child: Text(
+            'Sign In',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12.0),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: const Color(0xFF1E3A5F),
-          ),
-          SizedBox(width: 16),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.black87,
+  Widget _buildDrawerItem(IconData icon, String title, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: const Color(0xFF1E3A5F),
             ),
-          ),
-        ],
+            SizedBox(width: 16),
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get current user
+    final authState = ref.watch(authStateProvider);
+    
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.white,
@@ -194,25 +306,67 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Let's Get",
-                            style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                      authState.when(
+                        data: (user) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user != null ? "Welcome, ${user.displayName?.split(' ')[0] ?? 'Recruiter'}" : "Let's Get",
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          Text(
-                            "You Hired For The Job You Deserve!",
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.white70,
+                            Text(
+                              "Find the Perfect Freelancer for Your Job!",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        loading: () => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Loading...",
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              "Please wait",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                        error: (e, _) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Let's Get",
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              "You Hired For The Job You Deserve!",
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       GestureDetector(
                         onTap: () {
@@ -251,6 +405,11 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value.isNotEmpty ? value : null;
+                              });
+                            },
                             decoration: InputDecoration(
                               hintText: "Search for your jobs...",
                               hintStyle: GoogleFonts.poppins(
@@ -271,145 +430,318 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
             
             // Main Content Area (Scrollable)
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Job Summary Cards (Horizontal)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSummaryCard(
-                            "109",
-                            "Total Jobs",
-                            const Color(0xFFEEF2F6),
-                          ),
+              child: authState.when(
+                data: (user) {
+                  if (user == null) {
+                    return _buildSignInRequired(context);
+                  }
+                  
+                  // User is signed in, fetch their jobs
+                  return _buildJobsContent(context, user.uid);
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading user profile',
+                        style: GoogleFonts.poppins(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        error.toString(),
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSummaryCard(
-                            "109",
-                            "Ongoing",
-                            const Color(0xFFFAEEEE),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSummaryCard(
-                            "109",
-                            "Completed",
-                            const Color(0xFFEEF6F0),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Recommended Jobs Section Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Recommended Jobs",
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(
-                            Icons.add,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                          label: Text(
-                            "New Job",
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A5F),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Job Cards (Vertical List)
-                    _buildJobCard(
-                      context,
-                      "Mr. John",
-                      "Shopping Fruits",
-                      "Shopping",
-                      "Shopping is a delightful way to discover new...",
-                      "Feb 21, 2023 | 5km | 1 minute to read",
-                      "Completed",
-                      5000,
-                      isCompleted: true,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    _buildJobCard(
-                      context,
-                      "Mr. John",
-                      "Shopping Fruits",
-                      "Shopping",
-                      "Shopping is a delightful way to discover new...",
-                      "Feb 21, 2023 | 5km | 1 minute to read",
-                      "Pending",
-                      5000,
-                      isCompleted: false,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    _buildJobCard(
-                      context,
-                      "Mr. John",
-                      "Shopping Fruits",
-                      "Shopping",
-                      "Shopping is a delightful way to discover new...",
-                      "Feb 21, 2023 | 5km | 1 minute to read",
-                      "Completed",
-                      5000,
-                      isCompleted: true,
-                    ),
-                  ],
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             
-            // Bottom Navigation Bar
-            // Container(
-            //   height: 70,
-            //   decoration: const BoxDecoration(
-            //     color: Color.fromARGB(255, 255, 255, 255),
-            //     borderRadius: BorderRadius.only(
-            //       topLeft: Radius.circular(16),
-            //       topRight: Radius.circular(16),
-            //     ),
-            //   ),
-            //   child: Row(
-            //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-            //     children: [
-            //       _buildNavItem(Icons.home, "Home", true, onTap:(){ context.pushNamed(RecruiterHomePage.routeName);}),
-            //       _buildNavItem(Icons.work, "My Job", false, onTap:(){ context.pushNamed(MyJobScreen.routeName);}),
-            //       _buildNavItem(Icons.add, "Add Job", false, onTap:(){ context.go(JobPostScreen.routePath);}),
-            //       _buildNavItem(Icons.person, "Profile", false, onTap:(){ context.pushNamed(RecruiterProfileScreen.routeName);}),
-            //     ],
-            //   ),
-            // ),
+           
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSignInRequired(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.login, size: 80, color: Colors.grey[400]),
+          const SizedBox(height: 24),
+          Text(
+            'Sign in to view your dashboard',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => context.go('/login'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E3A5F),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            ),
+            child: Text(
+              'Sign In',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJobsContent(BuildContext context, String userId) {
+    // Get jobs posted by this recruiter
+    final myJobsAsync = ref.watch(recruiterJobsProvider(userId));
+    // Get all jobs (for recommended jobs)
+    final allJobsAsync = ref.watch(allJobsProvider);
+    
+    return myJobsAsync.when(
+      data: (myJobs) {
+        int totalJobs = myJobs.length;
+        int ongoingJobs = myJobs.where((job) => job.status == 'in-progress').length;
+        int completedJobs = myJobs.where((job) => job.status == 'completed').length;
+        
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Job Summary Cards (Horizontal)
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildSummaryCard(
+                      "$totalJobs",
+                      "Total Jobs",
+                      const Color(0xFFEEF2F6),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      "$ongoingJobs",
+                      "Ongoing",
+                      const Color(0xFFFAEEEE),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildSummaryCard(
+                      "$completedJobs",
+                      "Completed",
+                      const Color(0xFFEEF6F0),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // My Recent Jobs Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Your Recent Jobs",
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.pushNamed(MyJobScreen.routeName),
+                    child: Text(
+                      "View All",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF1E3A5F),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              
+              // My recent jobs list
+              myJobs.isEmpty
+                  ? Center(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 24),
+                          Icon(
+                            Icons.work_outline,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No jobs posted yet',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () => context.push(JobPostScreen.routePath),
+                            icon: const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              "Post a Job",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E3A5F),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: myJobs.length > 3 ? 3 : myJobs.length,
+                      itemBuilder: (context, index) {
+                        final job = myJobs[index];
+                        return _buildJobCard(
+                          context,
+                          job.recruiterName ?? "You",
+                          job.title,
+                          job.category,
+                          job.description,
+                          "${DateFormat('MMM dd, yyyy').format(job.date)} | ${job.location.split(',')[0]}",
+                          job.status == 'open' ? 'Active' : job.status == 'in-progress' ? 'In Progress' : job.status.substring(0, 1).toUpperCase() + job.status.substring(1),
+                          job.price.toInt(),
+                          isCompleted: job.status == 'completed',
+                          jobId: job.id,
+                        );
+                      },
+                    ),
+              
+              const SizedBox(height: 32),
+              
+    
+              
+              // Recommended jobs
+              allJobsAsync.when(
+                data: (allJobs) {
+                  // Filter jobs that are not by the current user
+                  final recommendedJobs = allJobs
+                      .where((job) => job.recruiterId != userId)
+                      .toList();
+                  
+                  if (recommendedJobs.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 32.0),
+                        child: Text(
+                          'No recommended jobs available',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: recommendedJobs.length > 3 ? 3 : recommendedJobs.length,
+                    itemBuilder: (context, index) {
+                      final job = recommendedJobs[index];
+                      return _buildJobCard(
+                        context,
+                        job.recruiterName ?? "Unknown",
+                        job.title,
+                        job.category,
+                        job.description,
+                        "${DateFormat('MMM dd, yyyy').format(job.date)} | ${job.location.split(',')[0]}",
+                        job.status == 'open' ? 'Active' : job.status == 'in-progress' ? 'In Progress' : job.status.substring(0, 1).toUpperCase() + job.status.substring(1),
+                        job.price.toInt(),
+                        isCompleted: job.status == 'completed',
+                        jobId: job.id,
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (error, stack) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32.0),
+                    child: Text(
+                      'Error loading recommended jobs',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading your jobs',
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () => ref.refresh(recruiterJobsProvider(userId)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A5F),
+              ),
+              child: Text(
+                'Retry',
+                style: GoogleFonts.poppins(color: Colors.white),
+              ),
+            ),
           ],
         ),
       ),
@@ -459,12 +791,14 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
     String status,
     int price, {
     required bool isCompleted,
+    required String jobId,
   }) {
     return GestureDetector(
       onTap: () {
-        context.goNamed('jobDetails', pathParameters: {'jobId': jobId});
+        context.goNamed('job_details', pathParameters: {'jobId': jobId});
       },
       child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -501,7 +835,9 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
                     decoration: BoxDecoration(
                       color: isCompleted
                           ? const Color(0xFFEEF6F0)
-                          : const Color(0xFFFAEEEE),
+                          : status == 'In Progress'
+                              ? const Color(0xFFFFF8E1)
+                              : const Color(0xFFFAEEEE),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -510,7 +846,9 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
                         fontSize: 10,
                         color: isCompleted
                             ? Colors.green
-                            : Colors.red,
+                            : status == 'In Progress'
+                                ? Colors.orange
+                                : Colors.red,
                       ),
                     ),
                   ),
@@ -527,27 +865,30 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
                       color: const Color(0xFF1E3A5F),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.shopping_bag,
+                    child: Icon(
+                      _getCategoryIcon(category),
                       color: Colors.white,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      jobTitle,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        jobTitle,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -577,11 +918,15 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
               
               // Description
               Text(
-                description,
+                description.length > 100 
+                    ? description.substring(0, 100) + '...'
+                    : description,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
                   color: Colors.grey.shade600,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
               
@@ -589,11 +934,14 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    dateInfo,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      color: Colors.grey,
+                  Expanded(
+                    child: Text(
+                      dateInfo,
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: Colors.grey,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Text(
@@ -611,6 +959,34 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
         ),
       ),
     );
+  }
+  
+  // Helper method to get category icon
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'cleaning':
+        return Icons.cleaning_services;
+      case 'gardening':
+        return Icons.yard;
+      case 'plumbing':
+        return Icons.plumbing;
+      case 'electrical':
+        return Icons.electrical_services;
+      case 'carpentry':
+        return Icons.handyman;
+      case 'painting':
+        return Icons.format_paint;
+      case 'moving':
+        return Icons.local_shipping;
+      case 'delivery':
+        return Icons.local_shipping;
+      case 'computer repair':
+        return Icons.computer;
+      case 'web development':
+        return Icons.web;
+      default:
+        return Icons.work;
+    }
   }
   
   // Helper method to build navigation items
@@ -641,18 +1017,18 @@ class _RecruiterHomePageState extends State<RecruiterHomePage> {
   }
 }
 
-class RecruiterJobDetailsScreen extends StatelessWidget {
-  final String jobId;
-  const RecruiterJobDetailsScreen({required this.jobId, Key? key}) : super(key: key);
+// class RecruiterJobDetailsScreen extends StatelessWidget {
+//   final String jobId;
+//   const RecruiterJobDetailsScreen({required this.jobId, Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    // Fetch job details using jobId, or display job info
-    return Scaffold(
-      appBar: AppBar(title: Text('Job Details')),
-      body: Center(
-        child: Text('Job ID: $jobId'),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     // Fetch job details using jobId, or display job info
+//     return Scaffold(
+//       appBar: AppBar(title: Text('Job Details')),
+//       body: Center(
+//         child: Text('Job ID: $jobId'),
+//       ),
+//     );
+//   }
+// }

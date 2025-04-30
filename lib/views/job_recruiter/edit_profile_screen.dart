@@ -1,221 +1,356 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mylocallance/shared/bottom_nav_page.dart';
-import 'package:mylocallance/views/job_recruiter/profile_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:go_router/go_router.dart';
+// import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
+import '../../auth_screen/controllers/auth_controller.dart';
 
-class EditProfileScreen extends StatelessWidget {
-  static const routeName = 'Edit Profile';
-  static const routePath = '/edit-profile';
-  const EditProfileScreen({Key? key}) : super(key: key);
+class EditProfileScreen extends ConsumerStatefulWidget {
+  static const String routePath = "/edit_profile";
+  static const String routeName = "Edit Profile";
+  
+  const EditProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final profileImageSize = width * 0.25;
-    final fieldFontSize = width < 360 ? 14.0 : 16.0;
-    final buttonWidth = width * 0.85;
-    final verticalGap = width < 360 ? 14.0 : 18.0;
-    final borderRadius = BorderRadius.circular(24);
-    final fieldRadius = BorderRadius.circular(14);
-    final fieldBg = const Color(0xFFF3F6FA);
-    final darkBlue = const Color(0xFF1E3A5F);
-    final subtitleColor = Colors.grey[500];
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFEAF1FA), // Light blueish-white
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 480, minWidth: 320),
-          margin: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Header
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 24),
-                          onPressed: () => context.pop(),
-                          splashRadius: 24,
-                        ),
-                        const Spacer(),
-                      ],
-                    ),
-                    Text(
-                      'Edit Profile',
-                      style: GoogleFonts.inter(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: darkBlue,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Keep your personal details private. Information you add here is visible to anyone who can view your profile.',
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        color: subtitleColor,
-                        fontWeight: FontWeight.w400,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: verticalGap + 2),
-                    // Profile Image
-                    Center(
-                      child: Column(
-                        children: [
-                          CircleAvatar(
-                            radius: profileImageSize / 2,
-                            backgroundImage: const AssetImage('assets/profile.jpg'), // Replace with your asset
-                          ),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: () {},
-                            child: Text(
-                              'Change your profile',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                color: darkBlue,
-                                decoration: TextDecoration.underline,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: verticalGap + 2),
-                    // Form Fields
-                    _ProfileField(
-                      label: 'Username',
-                      initialValue: 'Ishi Roy',
-                      icon: Icons.person_outline,
-                      fontSize: fieldFontSize,
-                      fieldBg: fieldBg,
-                      fieldRadius: fieldRadius,
-                    ),
-                    SizedBox(height: verticalGap),
-                    _ProfileField(
-                      label: 'Email',
-                      initialValue: 'recruiter@gmail.com',
-                      icon: Icons.email_outlined,
-                      fontSize: fieldFontSize,
-                      fieldBg: fieldBg,
-                      fieldRadius: fieldRadius,
-                    ),
-                    SizedBox(height: verticalGap),
-                    _ProfileField(
-                      label: 'Location',
-                      initialValue: 'Patna',
-                      icon: Icons.location_on_outlined,
-                      fontSize: fieldFontSize,
-                      fieldBg: fieldBg,
-                      fieldRadius: fieldRadius,
-                    ),
-                    SizedBox(height: verticalGap + 6),
-                    // Save Button
-                    SizedBox(
-                      width: buttonWidth,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: darkBlue,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 0,
-                          textStyle: GoogleFonts.inter(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        child: const Text('Save'),
-                      ),
-                    ),
-                    SizedBox(height: verticalGap),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _ProfileField extends StatelessWidget {
-  final String label;
-  final String initialValue;
-  final IconData icon;
-  final double fontSize;
-  final Color fieldBg;
-  final BorderRadius fieldRadius;
+class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _companyController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
+  
+  File? _profileImage;
+  String? _currentPhotoUrl;
+  bool _loading = false;
 
-  const _ProfileField({
-    required this.label,
-    required this.initialValue,
-    required this.icon,
-    required this.fontSize,
-    required this.fieldBg,
-    required this.fieldRadius,
-    Key? key,
-  }) : super(key: key);
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _companyController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchUserData() async {
+    setState(() => _loading = true);
+    
+    try {
+      // Get user from Firebase Auth
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      _nameController.text = user.displayName ?? '';
+      _emailController.text = user.email ?? '';
+      _currentPhotoUrl = user.photoURL;
+      
+      // Get additional data from Firestore
+      final recruiterDoc = await FirebaseFirestore.instance
+          .collection('recruiters')
+          .doc(user.uid)
+          .get();
+          
+      if (recruiterDoc.exists) {
+        final data = recruiterDoc.data();
+        if (data != null) {
+          _nameController.text = data['name'] ?? _nameController.text;
+          _phoneController.text = data['phone'] ?? '';
+          _companyController.text = data['company'] ?? '';
+          _bioController.text = data['bio'] ?? '';
+          
+          // If photoURL exists in Firestore but not in Auth, use it
+          if (_currentPhotoUrl == null && data['photoURL'] != null) {
+            _currentPhotoUrl = data['photoURL'];
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading profile data: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      // final XFile? image = await ImagePicker().pickImage(
+      //   source: ImageSource.gallery,
+      //   maxWidth: 512,
+      //   maxHeight: 512,
+      //   imageQuality: 75,
+      // );
+      
+      // if (image != null) {
+      //   setState(() {
+      //     _profileImage = File(image.path);
+      //   });
+      // }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking image: $e')),
+      );
+    }
+  }
+
+  Future<String?> _uploadProfileImage(String uid) async {
+    if (_profileImage == null) return _currentPhotoUrl;
+    
+    try {
+      // Create a reference to the storage location
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('profile_images')
+          .child('$uid.jpg');
+          
+      // Upload the file
+      await storageRef.putFile(_profileImage!);
+      
+      // Get download URL
+      return await storageRef.getDownloadURL();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading image: $e')),
+      );
+      return null;
+    }
+  }
+
+  Future<void> _updateProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() => _loading = true);
+    
+    try {
+      // Get current user
+      final user = ref.watch(authStateProvider).value;
+      // OR use Firebase directly if needed in a function where you need the current value
+      // final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      // Upload image if new one was selected
+      final photoURL = await _uploadProfileImage(user.uid);
+      
+      // Prepare additional data for Firestore
+      final Map<String, dynamic> additionalData = {
+        'name': _nameController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'company': _companyController.text.trim(),
+        'bio': _bioController.text.trim(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      // Add photoURL to additionalData if it exists
+      if (photoURL != null) {
+        additionalData['photoURL'] = photoURL;
+      }
+      
+      // Update profile using the auth controller
+      await ref.read(authControllerProvider.notifier).updateProfile(
+        displayName: _nameController.text.trim(),
+        photoURL: photoURL,
+        additionalData: additionalData,
+      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Edit Profile',
           style: GoogleFonts.inter(
-            fontSize: fontSize - 2,
-            color: Colors.grey[700],
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: fieldBg,
-            borderRadius: fieldRadius,
-          ),
-          child: TextFormField(
-            initialValue: initialValue,
-            style: GoogleFonts.inter(
-              fontSize: fontSize,
-              color: Colors.black87,
-              fontWeight: FontWeight.w500,
+        centerTitle: true,
+        backgroundColor: const Color(0xFF2C3A4B),
+        foregroundColor: Colors.white,
+      ),
+      body: _loading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Profile Image Picker
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: _profileImage != null 
+                            ? FileImage(_profileImage!) 
+                            : (_currentPhotoUrl != null 
+                                ? NetworkImage(_currentPhotoUrl!) 
+                                : null) as ImageProvider<Object>?,
+                          child: _profileImage == null && _currentPhotoUrl == null
+                            ? const Icon(
+                                Icons.person,
+                                size: 60,
+                                color: Colors.grey,
+                              )
+                            : null,
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2C3A4B),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Name Field
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your name';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Email Field (readonly)
+                  TextFormField(
+                    controller: _emailController,
+                    readOnly: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
+                      hintText: 'Email cannot be changed',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Phone Field
+                  TextFormField(
+                    controller: _phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Company Field
+                  TextFormField(
+                    controller: _companyController,
+                    decoration: const InputDecoration(
+                      labelText: 'Company Name',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.business),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Bio Field
+                  TextFormField(
+                    controller: _bioController,
+                    decoration: const InputDecoration(
+                      labelText: 'Bio',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.description),
+                      alignLabelWithHint: true,
+                    ),
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Save Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _loading ? null : _updateProfile,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2C3A4B),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: _loading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            'Save Changes',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              border: InputBorder.none,
-              suffixIcon: Icon(icon, color: Colors.grey[500]),
-            ),
           ),
-        ),
-      ],
     );
   }
 }
