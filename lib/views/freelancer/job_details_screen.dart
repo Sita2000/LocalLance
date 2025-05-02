@@ -1,19 +1,139 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../controllers/job_controller.dart';
+import '../../db/models/job_model.dart';
+import '../../auth_screen/controllers/auth_controller.dart'; // Added import for authStateProvider
 
-class JobDetailsScreen extends StatelessWidget {
+class JobDetailsScreen extends ConsumerStatefulWidget {
   static const String routePath = '/freelancer/jobs';
   static const String routeName = 'freelancer_jobs';
   
   final bool isRecruiter;
+  final String? contactNumber;
+  final String? jobId; // Add jobId parameter
   
-  const JobDetailsScreen({super.key, required this.isRecruiter});
+  const JobDetailsScreen({
+    super.key, 
+    required this.isRecruiter,
+    this.contactNumber,
+    this.jobId
+  });
+
+  @override
+  ConsumerState<JobDetailsScreen> createState() => _JobDetailsScreenState();
+}
+
+class _JobDetailsScreenState extends ConsumerState<JobDetailsScreen> {
+  // Function to make a phone call
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    
+    try {
+      if (!await launchUrl(launchUri)) {
+        throw Exception('Could not launch $launchUri');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error making call: ${e.toString()}')),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch job details when screen loads if we have a jobId
+    if (widget.jobId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(jobNotifierProvider.notifier).getJob(widget.jobId!);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // App's primary dark blue color
     final Color primaryColor = const Color(0xFF1E3A5F);
+    
+    // Get job details from provider if we have a jobId
+    final jobState = ref.watch(jobNotifierProvider);
+    
+    // Show loading indicator if job is being fetched
+    if (widget.jobId != null && jobState.isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: primaryColor,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            'Job Details',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    // Handle errors
+    if (widget.jobId != null && jobState.hasError) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: primaryColor,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            'Job Details',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error loading job details', style: TextStyle(fontSize: 16.sp)),
+              SizedBox(height: 10.h),
+              ElevatedButton(
+                onPressed: () {
+                  ref.read(jobNotifierProvider.notifier).getJob(widget.jobId!);
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Get contact number from either the job or the passed parameter
+    String? contactNumber = widget.contactNumber;
+    Job? job = jobState.value;
+    
+    if (job != null) {
+      contactNumber = job.contactNo;
+    }
     
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -33,10 +153,12 @@ class JobDetailsScreen extends StatelessWidget {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bookmark_border, color: Colors.white),
-            onPressed: () {},
-          ),
+          // Only show bookmark icon for freelancer view
+          if (!widget.isRecruiter)
+            IconButton(
+              icon: const Icon(Icons.bookmark_border, color: Colors.white),
+              onPressed: () {},
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -59,7 +181,7 @@ class JobDetailsScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.pets,
+                        _getCategoryIcon(job?.category ?? ''),
                         color: primaryColor,
                         size: 30.sp,
                       ),
@@ -68,16 +190,20 @@ class JobDetailsScreen extends StatelessWidget {
                   SizedBox(height: 10.h),
                   
                   // Job title and subtitle
-                  Text(
-                    'Walking Dog in the Park',
-                    style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 15.w),
+                    child: Text(
+                      job?.title ?? 'Job Title',
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   SizedBox(height: 4.h),
                   Text(
-                    'Animal Care & Service Jobs',
+                    job?.category ?? 'Category',
                     style: TextStyle(
                       fontSize: 14.sp,
                       color: Colors.grey[600],
@@ -111,7 +237,7 @@ class JobDetailsScreen extends StatelessWidget {
                               ),
                               SizedBox(width: 4.w),
                               Text(
-                                '\$5000',
+                                '₹${job != null ? job.price.toString() : '0'}',
                                 style: TextStyle(
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w600,
@@ -130,9 +256,9 @@ class JobDetailsScreen extends StatelessWidget {
                             vertical: 6.h,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.red[50],
+                            color: _getStatusColor(job?.status ?? 'open').withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20.r),
-                            border: Border.all(color: Colors.red[200]!),
+                            border: Border.all(color: _getStatusColor(job?.status ?? 'open').withOpacity(0.5)),
                           ),
                           child: Row(
                             children: [
@@ -140,17 +266,17 @@ class JobDetailsScreen extends StatelessWidget {
                                 width: 8.w,
                                 height: 8.w,
                                 decoration: BoxDecoration(
-                                  color: Colors.red,
+                                  color: _getStatusColor(job?.status ?? 'open'),
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               SizedBox(width: 6.w),
                               Text(
-                                'Pending',
+                                _formatStatus(job?.status ?? 'open'),
                                 style: TextStyle(
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.red[800],
+                                  color: _getStatusColor(job?.status ?? 'open'),
                                 ),
                               ),
                             ],
@@ -171,7 +297,7 @@ class JobDetailsScreen extends StatelessWidget {
               content: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 15.w),
                 child: Text(
-                  'We are looking for someone to provide dog walking services in the local park. The job involves taking care of a medium-sized golden retriever for regular exercise. You will be responsible for ensuring the dog gets proper exercise, stays hydrated, and interacts safely with other dogs. Experience with animals is preferred.',
+                  job?.description ?? 'No description available',
                   style: TextStyle(
                     fontSize: 14.sp,
                     color: Colors.grey[800],
@@ -188,31 +314,75 @@ class JobDetailsScreen extends StatelessWidget {
               title: 'Posted By',
               content: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 15.w),
-                child: Text(
-                  'Miss Ishii',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    color: Colors.grey[800],
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        job?.recruiterName ?? 'Recruiter',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ),
+                    // Only show call button for freelancers, not for recruiters
+                    if (!widget.isRecruiter && contactNumber != null)
+                      ElevatedButton.icon(
+                        onPressed: () => _makePhoneCall(contactNumber!),
+                        icon: const Icon(Icons.call, color: Colors.white),
+                        label: Text(
+                          'Call',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 15.w, 
+                            vertical: 8.h
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
             
             SizedBox(height: 10.h),
             
-            // Skills Required section
+            // Date section
+            if (job != null)
+              _buildSection(
+                title: 'Job Date',
+                content: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 15.w),
+                  child: Text(
+                    DateFormat('MMM dd, yyyy').format(job.date),
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      color: Colors.grey[800],
+                    ),
+                  ),
+                ),
+              ),
+              
+            SizedBox(height: 10.h),
+            
+            // Skills Required section - We'll show category info as skills
             _buildSection(
               title: 'Skills Required',
               content: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 15.w),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSkillItem('Animal handling: Basic understanding of dog behavior and care'),
-                    _buildSkillItem('Communication: Clear communication with pet owners'),
-                    _buildSkillItem('Responsibility: Ensuring pet safety at all times'),
-                    _buildSkillItem('Time management: Punctuality and adherence to schedule'),
-                  ],
+                  children: _getSkillsForCategory(job?.category ?? '').map((skill) => 
+                    _buildSkillItem(skill)
+                  ).toList(),
                 ),
               ),
             ),
@@ -221,14 +391,14 @@ class JobDetailsScreen extends StatelessWidget {
             
             // Location section
             _buildSection(
-              title: 'What\'s your location?',
+              title: 'Job Location',
               content: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 15.w),
                     child: Text(
-                      'Let\'s get your location so we can find your location',
+                      job?.location ?? 'No location specified',
                       style: TextStyle(
                         fontSize: 14.sp,
                         color: Colors.grey[800],
@@ -237,7 +407,7 @@ class JobDetailsScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 10.h),
                   
-                  // Map container
+                  // Map container - For a full implementation, you would integrate with Google Maps here
                   Container(
                     margin: EdgeInsets.symmetric(horizontal: 15.w),
                     height: 150.h,
@@ -279,14 +449,14 @@ class JobDetailsScreen extends StatelessWidget {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'Current Location',
+                                          'Location',
                                           style: TextStyle(
                                             fontSize: 12.sp,
                                             color: Colors.grey[600],
                                           ),
                                         ),
                                         Text(
-                                          '556 E 37th st, Bailey Road, Patna, 5km',
+                                          job?.location ?? 'Not specified',
                                           style: TextStyle(
                                             fontSize: 12.sp,
                                             fontWeight: FontWeight.w600,
@@ -295,16 +465,6 @@ class JobDetailsScreen extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {},
-                                    child: Text(
-                                      'Edit',
-                                      style: TextStyle(
-                                        color: primaryColor,
-                                        fontWeight: FontWeight.w600,
-                                      ),
                                     ),
                                   ),
                                 ],
@@ -337,7 +497,15 @@ class JobDetailsScreen extends StatelessWidget {
         ),
         child: SafeArea(
           child: ElevatedButton(
-            onPressed: () {},
+            onPressed: () {
+              if (job != null && !widget.isRecruiter) {
+                // Apply for the job
+                ref.read(jobNotifierProvider.notifier).applyForJob(job.id, ref.read(authStateProvider).value?.uid ?? '');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Application submitted successfully')),
+                );
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor,
               foregroundColor: Colors.white,
@@ -413,5 +581,146 @@ class JobDetailsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+  
+  // Helper method to get an icon for a category
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'cleaning':
+        return Icons.cleaning_services;
+      case 'gardening':
+        return Icons.yard;
+      case 'plumbing':
+        return Icons.plumbing;
+      case 'electrical':
+        return Icons.electrical_services;
+      case 'carpentry':
+        return Icons.handyman;
+      case 'painting':
+        return Icons.format_paint;
+      case 'moving':
+        return Icons.local_shipping;
+      case 'delivery':
+        return Icons.delivery_dining;
+      case 'computer repair':
+        return Icons.computer;
+      case 'web development':
+        return Icons.web;
+      default:
+        return Icons.work;
+    }
+  }
+  
+  // Helper to format job status
+  String _formatStatus(String status) {
+    switch (status) {
+      case 'open':
+        return 'Open';
+      case 'in-progress':
+        return 'In Progress';
+      case 'completed':
+        return 'Completed';
+      default:
+        return status[0].toUpperCase() + status.substring(1);
+    }
+  }
+  
+  // Helper to get status color
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'open':
+        return Colors.green;
+      case 'in-progress':
+        return Colors.blue;
+      case 'completed':
+        return Colors.purple;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+  
+  // Helper to get skills based on job category
+  List<String> _getSkillsForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'cleaning':
+        return [
+          'Knowledge of cleaning products and techniques',
+          'Attention to detail and thoroughness',
+          'Physical stamina for extended cleaning tasks',
+          'Time management for efficient cleaning'
+        ];
+      case 'gardening':
+        return [
+          'Plant care and maintenance knowledge',
+          'Understanding of seasonal gardening requirements',
+          'Lawn care and landscaping skills',
+          'Knowledge of gardening tools and equipment'
+        ];
+      case 'plumbing':
+        return [
+          'Pipe fitting and repair expertise',
+          'Fixture installation knowledge',
+          'Drain cleaning and maintenance skills',
+          'Problem diagnosis abilities'
+        ];
+      case 'electrical':
+        return [
+          'Electrical wiring and repair knowledge',
+          'Safety protocols awareness',
+          'Fixture installation skills',
+          'Troubleshooting electrical problems'
+        ];
+      case 'carpentry':
+        return [
+          'Woodworking and joinery skills',
+          'Measurement and precision abilities',
+          'Knowledge of carpentry tools',
+          'Furniture repair and construction expertise'
+        ];
+      case 'painting':
+        return [
+          'Surface preparation techniques',
+          'Knowledge of paint types and finishes',
+          'Precision and attention to detail',
+          'Color matching abilities'
+        ];
+      case 'moving':
+        return [
+          'Physical strength for lifting heavy items',
+          'Careful handling of fragile possessions',
+          'Efficient packing and unpacking skills',
+          'Space management abilities'
+        ];
+      case 'delivery':
+        return [
+          'Time management for on-time deliveries',
+          'Route planning and navigation skills',
+          'Safe handling of packages',
+          'Customer service abilities'
+        ];
+      case 'computer repair':
+        return [
+          'Hardware troubleshooting expertise',
+          'Software diagnostics and repair',
+          'Computer component knowledge',
+          'Problem-solving abilities'
+        ];
+      case 'web development':
+        return [
+          'HTML, CSS, and JavaScript proficiency',
+          'Responsive design implementation',
+          'Framework experience (React, Angular, or Vue)',
+          'Backend integration knowledge'
+        ];
+      default:
+        return [
+          'Good communication skills',
+          'Punctuality and reliability',
+          'Problem-solving abilities',
+          'Attention to detail'
+        ];
+    }
   }
 }

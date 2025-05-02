@@ -25,6 +25,7 @@ class _JobPostScreenState extends ConsumerState<JobPostScreen> {
   
   String? _selectedCategory;
   bool _isLoading = false;
+  final RegExp _phoneRegex = RegExp(r'^[0-9]{10}$'); // Regex for 10-digit phone number
   final List<String> _categories = [
     'Cleaning',
     'Gardening',
@@ -83,11 +84,12 @@ class _JobPostScreenState extends ConsumerState<JobPostScreen> {
         _descriptionController.text.isEmpty ||
         _selectedCategory == null ||
         _contactController.text.isEmpty ||
+        !_phoneRegex.hasMatch(_contactController.text) || // Validate phone number
         _locationController.text.isEmpty ||
         _dateController.text.isEmpty ||
         _priceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
+        const SnackBar(content: Text('Please fill all fields correctly')),
       );
       return;
     }

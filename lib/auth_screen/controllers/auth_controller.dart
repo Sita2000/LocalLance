@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../services/user_preferences_service.dart';
+import '../../db/firebase/user.dart';
+import '../../db/models/user_model.dart';
 
 // Provider to access the current authenticated user (or null if not authenticated)
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -38,8 +40,16 @@ final googleSignInProvider = Provider<Future<UserCredential?> Function()>((ref) 
   };
 });
 
+// Provider for UserDatabase
+final userDatabaseProvider = Provider<UserDatabase>((ref) {
+  return UserDatabase();
+});
+
 // Auth controller for login, registration, and profile management
 class AuthController extends StateNotifier<AsyncValue<User?>> {
+  final UserPreferencesService _prefsService = UserPreferencesService();
+  final UserDatabase _userDatabase = UserDatabase();
+  
   AuthController() : super(const AsyncValue.loading()) {
     _init();
   }
@@ -50,6 +60,19 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
     });
   }
 
+  // Handle Google sign-in with role selection
+  Future<bool> handleGoogleSignInWithRole(User firebaseUser, String role) async {
+    try {
+      // Use the UserDatabase method to handle Google user with role
+      await _userDatabase.handleGoogleUser(firebaseUser, role);
+      return true;
+    } catch (e) {
+      print('Error handling Google sign in with role: $e');
+      state = AsyncValue.error(e, StackTrace.current);
+      return false;
+    }
+  }
+
   // Sign in with email and password
   Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
     try {
@@ -57,6 +80,13 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
         email: email,
         password: password,
       );
+      
+      // After signing in, determine the user role and save it
+      final uid = userCredential.user?.uid;
+      if (uid != null) {
+        await _saveUserRole(uid);
+      }
+      
       return userCredential;
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
@@ -69,7 +99,7 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
     String email, 
     String password, 
     String name,
-    bool isRecruiter,
+    String role,
   ) async {
     try {
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
@@ -80,17 +110,22 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
       // Update display name
       await userCredential.user?.updateDisplayName(name);
 
-      // Create user document in Firestore
-      final uid = userCredential.user!.uid;
-      final collectionPath = isRecruiter ? 'recruiters' : 'freelancers';
-      
-      await FirebaseFirestore.instance.collection(collectionPath).doc(uid).set({
-        'name': name,
-        'email': email,
-        'isRecruiter': isRecruiter,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (userCredential.user != null) {
+        final appUser = AppUser(
+          uid: userCredential.user!.uid,
+          name: name,
+          email: email,
+          role: role,
+          profileImageUrl: userCredential.user!.photoURL,
+        );
+        
+        // Create user in unified users collection
+        await _userDatabase.createUser(appUser);
+        
+        // Save role in preferences
+        await _prefsService.saveUserRole(role);
+        await _prefsService.saveUserId(userCredential.user!.uid);
+      }
 
       return userCredential;
     } catch (e) {
@@ -102,10 +137,40 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
   // Sign out the current user
   Future<void> signOut() async {
     try {
+      // Clear local user data from preferences
+      await _prefsService.clearUserData();
+      
+      // Sign out from Google if it was used for sign-in
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+      }
+      
+      // Sign out from Firebase Authentication
       await FirebaseAuth.instance.signOut();
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
       rethrow;
+    }
+  }
+
+  // Helper method to save user role
+  Future<void> _saveUserRole(String uid) async {
+    try {
+      // Get user from unified users collection
+      final user = await _userDatabase.getUser(uid);
+      
+      if (user != null && user.role.isNotEmpty) {
+        // User exists and has a role, save it
+        await _prefsService.saveUserRole(user.role);
+        await _prefsService.saveUserId(uid);
+        return;
+      }
+      
+      // If user document not found or role is empty
+      print('User role not found for user: $uid');
+    } catch (e) {
+      print('Error determining user role: $e');
     }
   }
 
@@ -123,28 +188,37 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
 
       // Update Auth profile
       if (displayName != null || photoURL != null) {
-        await user.updateProfile(
-          displayName: displayName,
-          photoURL: photoURL,
-        );
+        await user.updateDisplayName(displayName);
+        if (photoURL != null) {
+          await user.updatePhotoURL(photoURL);
+        }
       }
       
-      // Update Firestore data if needed
-      if (additionalData != null && additionalData.isNotEmpty) {
-        final uid = user.uid;
+      // Get the existing user
+      final appUser = await _userDatabase.getUser(user.uid);
+      if (appUser != null) {
+        // Update user in main users collection
+        final updatedUser = AppUser(
+          uid: appUser.uid,
+          name: displayName ?? appUser.name,
+          email: appUser.email,
+          role: appUser.role,
+          phone: appUser.phone,
+          profileImageUrl: photoURL ?? appUser.profileImageUrl,
+        );
         
-        // Determine if user is a recruiter or freelancer
-        final recruiterDoc = await FirebaseFirestore.instance
-            .collection('recruiters')
-            .doc(uid)
-            .get();
-            
-        final collectionPath = recruiterDoc.exists ? 'recruiters' : 'freelancers';
+        await _userDatabase.updateUser(updatedUser);
         
-        await FirebaseFirestore.instance
-            .collection(collectionPath)
-            .doc(uid)
-            .update(additionalData);
+        // Add additional data if provided
+        if (additionalData != null && additionalData.isNotEmpty) {
+          Map<String, dynamic> updateData = {
+            'name': displayName ?? appUser.name,
+            'profileImageUrl': photoURL ?? appUser.profileImageUrl,
+            ...additionalData
+          };
+          
+          await _userDatabase.usersCollection.doc(user.uid).update(updateData);
+        }
       }
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
@@ -185,34 +259,11 @@ class AuthController extends StateNotifier<AsyncValue<User?>> {
         throw Exception('No authenticated user found');
       }
 
-      // First delete the user document from Firestore
-      final uid = user.uid;
+      // Delete from users collection
+      await _userDatabase.deleteUser(user.uid);
       
-      // Check both collections to find the user document
-      final recruiterDoc = await FirebaseFirestore.instance
-          .collection('recruiters')
-          .doc(uid)
-          .get();
-          
-      if (recruiterDoc.exists) {
-        await FirebaseFirestore.instance
-            .collection('recruiters')
-            .doc(uid)
-            .delete();
-      } else {
-        // Check freelancers collection
-        final freelancerDoc = await FirebaseFirestore.instance
-            .collection('freelancers')
-            .doc(uid)
-            .get();
-            
-        if (freelancerDoc.exists) {
-          await FirebaseFirestore.instance
-              .collection('freelancers')
-              .doc(uid)
-              .delete();
-        }
-      }
+      // Clear shared preferences data
+      await _prefsService.clearUserData();
       
       // Then delete the authentication record
       await user.delete();

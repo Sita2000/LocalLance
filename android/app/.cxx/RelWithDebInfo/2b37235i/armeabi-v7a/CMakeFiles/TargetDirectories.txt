@@ -1,0 +1,2 @@
+/home/viku/college-projects/LocalLance/android/app/.cxx/RelWithDebInfo/2b37235i/armeabi-v7a/CMakeFiles/edit_cache.dir
+/home/viku/college-projects/LocalLance/android/app/.cxx/RelWithDebInfo/2b37235i/armeabi-v7a/CMakeFiles/rebuild_cache.dir

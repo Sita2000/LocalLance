@@ -29,7 +29,7 @@ class JobActionResult {
 }
 
 class JobDetailsScreen extends ConsumerStatefulWidget {
-  static const String routeName = 'job_details';
+  static const String routeName = 'recruiter.JobDetailsScreen';
   static const String routePath = '/recruiter/job_details';
   
   final String jobId;

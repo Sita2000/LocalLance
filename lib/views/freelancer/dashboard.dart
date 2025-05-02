@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mylocallance/views/freelancer/chatlist_screen.dart';
+import 'package:mylocallance/views/freelancer/job_details_screen.dart';
 import 'package:mylocallance/views/freelancer/my_job_screen.dart';
 import 'package:mylocallance/views/freelancer/payment_screen.dart';
 import 'package:mylocallance/views/freelancer/profile_screen.dart';
 import 'package:mylocallance/views/freelancer/review_screen.dart';
 import 'package:mylocallance/providers/freelancer_bottom_nav_provider.dart';
+import '../../controllers/job_controller.dart';
+import '../../db/models/job_model.dart';
+import '../../auth_screen/controllers/auth_controller.dart';
+import '../../providers/freelancer_provider.dart';
+import '../../services/user_preferences_service.dart';
 
 class FreelancerDashboard extends ConsumerStatefulWidget {
   static const routePath = '/freelancer/dashboard';
@@ -20,52 +28,83 @@ class FreelancerDashboard extends ConsumerStatefulWidget {
 
 class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
   int _selectedTabIndex = 0;
-  final List<String> _tabTitles = ['All', 'Applied (10)', 'Recommended Jobs'];
+  final List<String> _tabTitles = ['All', 'Applied', 'Recommended'];
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     final selectedItem = ref.watch(freelancerBottomNavProvider);
+    final authState = ref.watch(authStateProvider);
+    final allJobs = ref.watch(allJobsProvider);
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.white,
-      drawer: _buildDrawer(),
-      body: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
-        ),
-        margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 16.h),
-        child: Column(
-          children: [
-            // Top section with app bar and search
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAppBar(),
-                    _buildSearchBar(),
-                    _buildJobSummaryCards(),
-                    _buildQuickAccessGrid(),
-                    _buildRecentJobsSection(),
-                    _buildJobFilterTabs(),
-                    _buildJobDetailCard(),
-                  ],
-                ),
-              ),
+    return authState.when(
+      data: (user) {
+        if (user == null) {
+          // Redirect to login if not authenticated
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.go('/login');
+          });
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        // Get freelancer profile data for the drawer
+        final freelancerProfile = ref.watch(freelancerProfileProvider(user.uid));
+        final freelancerStats = ref.watch(freelancerStatsProvider(user.uid));
+        
+        return Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: Colors.white,
+          drawer: _buildDrawer(context, user, freelancerProfile),
+          body: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20.r),
             ),
-          ],
+            margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 16.h),
+            child: Column(
+              children: [
+                // Top section with app bar and search
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      ref.refresh(allJobsProvider);
+                      ref.refresh(freelancerStatsProvider(user.uid));
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAppBar(),
+                          _buildSearchBar(),
+                          _buildJobSummaryCards(user.uid),
+                          _buildQuickAccessGrid(context),
+                          _buildRecentJobsSection(allJobs),
+                          _buildJobFilterTabs(),
+                          _buildJobList(user.uid, allJobs),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stackTrace) => Scaffold(
+        body: Center(
+          child: Text('Error: $error'),
         ),
       ),
-      
     );
   }
 
-  // Build the drawer widget
-  Widget _buildDrawer() {
+  // Build the drawer widget with real user data
+  Widget _buildDrawer(BuildContext context, dynamic user, AsyncValue<Map<String, dynamic>?> profileAsync) {
     return Drawer(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
@@ -74,21 +113,36 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
           bottomRight: Radius.circular(20.r),
         ),
       ),
-
-      // Build Drawer Item widget
       child: SafeArea(
         child: Column(
           children: [
-            // _buildDrawerItem(),
             // User profile section
             Container(
               padding: EdgeInsets.all(16.w),
               child: Row(
                 children: [
                   // User avatar
-                  CircleAvatar(
-                    radius: 35.r,
-                    backgroundColor: const Color(0xFF1E3A5F),
+                  profileAsync.when(
+                    data: (profileData) {
+                      return CircleAvatar(
+                        radius: 35.r,
+                        backgroundColor: const Color(0xFF1E3A5F),
+                        backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL) : null,
+                        child: user.photoURL == null
+                            ? Icon(Icons.person, color: Colors.white, size: 40.r)
+                            : null,
+                      );
+                    },
+                    loading: () => CircleAvatar(
+                      radius: 35.r,
+                      backgroundColor: const Color(0xFF1E3A5F),
+                      child: const CircularProgressIndicator(color: Colors.white),
+                    ),
+                    error: (_, __) => CircleAvatar(
+                      radius: 35.r,
+                      backgroundColor: const Color(0xFF1E3A5F),
+                      child: Icon(Icons.person, color: Colors.white, size: 40.r),
+                    ),
                   ),
                   SizedBox(width: 16.w),
                   // User info
@@ -97,7 +151,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Job Seeker Name',
+                          user.displayName ?? 'Freelancer',
                           style: TextStyle(
                             fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
@@ -105,18 +159,19 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                         ),
                         SizedBox(height: 4.h),
                         Text(
-                          'Student@gmail.com',
+                          user.email ?? 'No email',
                           style: TextStyle(
                             fontSize: 14.sp,
                             color: Colors.grey[600],
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: 8.h),
                         SizedBox(
                           height: 30.h,
                           child: ElevatedButton(
                             onPressed: () {
-                              debugPrint('View Profile tapped');
+                              context.pushNamed(FreelancerProfileScreen.routeName);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF1E3A5F),
@@ -144,41 +199,29 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
             
             const Divider(),
             
-            // Menu items
+            // Menu items with navigation
             Expanded(
               child: ListView(
                 padding: EdgeInsets.symmetric(vertical: 8.h),
                 children: [
                   _buildDrawerItem('My Jobs', () {
-                    debugPrint('My Jobs tapped');
+                    context.pushNamed(FreelancerMyJobScreen.routeName);
                     Navigator.pop(context);
                   }),
                   _buildDrawerItem('Saved Jobs', () {
                     debugPrint('Saved Jobs tapped');
                     Navigator.pop(context);
                   }),
-                  _buildDrawerItem('Proposals', () {
-                    debugPrint('Proposals tapped');
+                  _buildDrawerItem('Messages', () {
+                    context.pushNamed(ChatScreen.routeName);
                     Navigator.pop(context);
                   }),
-                  _buildDrawerItem('Message', () {
-                    debugPrint('Message tapped');
+                  _buildDrawerItem('Review & Ratings', () {
+                    context.pushNamed(ReviewScreen.routeName);
                     Navigator.pop(context);
-                  }),
-                  _buildDrawerItem('Review & ratings', () {
-                    debugPrint('Review & ratings tapped');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const ReviewScreen()),
-                    );
-                    Navigator.pop(context); // Close the drawer
                   }),
                   _buildDrawerItem('Payments', () {
-                    debugPrint('Payments tapped');
-                    Navigator.pop(context);
-                  }),
-                  _buildDrawerItem('Subscriptions', () {
-                    debugPrint('Subscriptions tapped');
+                    context.pushNamed(PaymentScreen.routeName);
                     Navigator.pop(context);
                   }),
                   _buildDrawerItem('Settings', () {
@@ -189,9 +232,21 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                     debugPrint('Help & Support tapped');
                     Navigator.pop(context);
                   }),
-                  _buildDrawerItem('Logout', () {
-                    debugPrint('Logout tapped');
-                    Navigator.pop(context);
+                  _buildDrawerItem('Logout', () async {
+                    try {
+                      final prefsService = UserPreferencesService();
+                      await prefsService.clearUserData();
+                      await ref.read(authControllerProvider.notifier).signOut();
+                      if (context.mounted) {
+                        context.go('/login');
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error signing out: $e')),
+                        );
+                      }
+                    }
                   }),
                 ],
               ),
@@ -234,7 +289,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  // App Bar with menu icon, greeting and notification
+  // App Bar with menu icon and notification
   Widget _buildAppBar() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
@@ -264,7 +319,14 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
           // Notification icon with badge
           Stack(
             children: [
-              Icon(Icons.notifications_outlined, size: 24.sp),
+              InkWell(
+                onTap: () => context.pushNamed('freelancer_notifications'),
+                borderRadius: BorderRadius.circular(16.r),
+                child: Padding(
+                  padding: EdgeInsets.all(4.r),
+                  child: Icon(Icons.notifications_outlined, size: 24.sp),
+                ),
+              ),
               Positioned(
                 right: 0,
                 top: 0,
@@ -286,25 +348,73 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
 
   // Greeting section with user name and subtitle
   Widget _buildGreeting() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Hi Ishit !',
-          style: TextStyle(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
+    final authState = ref.watch(authStateProvider);
+    
+    return authState.when(
+      data: (user) {
+        final firstName = user?.displayName?.split(' ').first ?? 'Freelancer';
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hi $firstName!',
+              style: TextStyle(
+                fontSize: 20.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'Your Jobs are waiting for you!',
+              style: TextStyle(
+                fontSize: 14.sp,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Loading...',
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          'Your Jobs are waiting you...!',
-          style: TextStyle(
-            fontSize: 14.sp,
-            color: Colors.grey[600],
+          SizedBox(height: 4.h),
+          Text(
+            'Please wait',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.grey[600],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+      error: (_, __) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Hi there!',
+            style: TextStyle(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Your Jobs are waiting for you!',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -345,18 +455,53 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  // Job Summary Cards (3 cards showing Total, Ongoing, Completed jobs)
-  Widget _buildJobSummaryCards() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Row(
-        children: [
-          _buildSummaryCard('Total Jobs', '109', Colors.grey[300]!),
-          SizedBox(width: 8.w),
-          _buildSummaryCard('Ongoing', '109', Colors.red[100]!),
-          SizedBox(width: 8.w),
-          _buildSummaryCard('Completed', '109', Colors.green[100]!),
-        ],
+  // Job Summary Cards with stats from Firebase
+  Widget _buildJobSummaryCards(String userId) {
+    // Fetch freelancer stats
+    final freelancerStats = ref.watch(freelancerStatsProvider(userId));
+    
+    return freelancerStats.when(
+      data: (stats) {
+        final totalJobs = stats['totalJobs'] as int;
+        final completedJobs = stats['completedJobs'] ?? 0;
+        final ongoingJobs = totalJobs - completedJobs;
+        
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          child: Row(
+            children: [
+              _buildSummaryCard('Total Jobs', '$totalJobs', Colors.grey[300]!),
+              SizedBox(width: 8.w),
+              _buildSummaryCard('Ongoing', '$ongoingJobs', Colors.red[100]!),
+              SizedBox(width: 8.w),
+              _buildSummaryCard('Completed', '$completedJobs', Colors.green[100]!),
+            ],
+          ),
+        );
+      },
+      loading: () => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        child: Row(
+          children: [
+            _buildSummaryCard('Total Jobs', '...', Colors.grey[300]!),
+            SizedBox(width: 8.w),
+            _buildSummaryCard('Ongoing', '...', Colors.red[100]!),
+            SizedBox(width: 8.w),
+            _buildSummaryCard('Completed', '...', Colors.green[100]!),
+          ],
+        ),
+      ),
+      error: (_, __) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        child: Row(
+          children: [
+            _buildSummaryCard('Total Jobs', '0', Colors.grey[300]!),
+            SizedBox(width: 8.w),
+            _buildSummaryCard('Ongoing', '0', Colors.red[100]!),
+            SizedBox(width: 8.w),
+            _buildSummaryCard('Completed', '0', Colors.green[100]!),
+          ],
+        ),
       ),
     );
   }
@@ -392,25 +537,45 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  // Quick access grid for New Jobs, Saved Jobs, Earnings, Messages (2x2 grid)
-  Widget _buildQuickAccessGrid() {
+  // Quick access grid with navigation
+  Widget _buildQuickAccessGrid(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(child: _buildActionCard('New Jobs', Icons.work_outline)),
+              Expanded(
+                child: _buildActionCard('New Jobs', Icons.work_outline, () {
+                  setState(() {
+                    _selectedTabIndex = 0;  // Switch to "All" tab
+                  });
+                }),
+              ),
               SizedBox(width: 12.w),
-              Expanded(child: _buildActionCard('Saved Jobs', Icons.bookmark_border)),
+              Expanded(
+                child: _buildActionCard('Applied Jobs', Icons.bookmark_border, () {
+                  setState(() {
+                    _selectedTabIndex = 1;  // Switch to "Applied" tab
+                  });
+                }),
+              ),
             ],
           ),
           SizedBox(height: 12.h),
           Row(
             children: [
-              Expanded(child: _buildActionCard('Earnings', Icons.attach_money)),
+              Expanded(
+                child: _buildActionCard('Earnings', Icons.attach_money, () {
+                  context.pushNamed(PaymentScreen.routeName);
+                }),
+              ),
               SizedBox(width: 12.w),
-              Expanded(child: _buildActionCard('Messages', Icons.chat_bubble_outline)),
+              Expanded(
+                child: _buildActionCard('Messages', Icons.chat_bubble_outline, () {
+                  context.pushNamed(ChatScreen.routeName);
+                }),
+              ),
             ],
           ),
         ],
@@ -418,13 +583,11 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  Widget _buildActionCard(String title, IconData iconData) {
+  Widget _buildActionCard(String title, IconData iconData, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          debugPrint('$title tapped');
-        },
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8.r),
         child: Ink(
           decoration: BoxDecoration(
@@ -442,7 +605,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
             height: 70.h,
             padding: EdgeInsets.all(8.r),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Container(
                   width: 36.w,
@@ -458,11 +621,14 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                   ),
                 ),
                 SizedBox(width: 8.w),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
+                Flexible(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -473,8 +639,8 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  // Recent Jobs Section with horizontal scrolling job cards
-  Widget _buildRecentJobsSection() {
+  // Recent Jobs Section with real jobs from Firebase
+  Widget _buildRecentJobsSection(AsyncValue<List<Job>> jobsAsync) {
     return Padding(
       padding: EdgeInsets.only(left: 16.w, right: 16.w, top: 16.h),
       child: Column(
@@ -488,23 +654,61 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
             ),
           ),
           SizedBox(height: 12.h),
-          SizedBox(
-            height: 150.h, // Increased height to ensure content fits
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: 4,
-              itemBuilder: (context, index) {
-                final titles = ['UI/UX Designer', 'Flutter Developer', 'Web Designer', 'Graphic Designer'];
-                final prices = ['\$3K', '\$3.2K', '\$2K', '\$2.5K'];
-                final times = ['1hr ago', '2hrs ago', '3hrs ago', '4hrs ago'];
-                
-                return _buildJobCard(
-                  titles[index % titles.length], 
-                  prices[index % prices.length], 
-                  times[index % times.length]
+          
+          jobsAsync.when(
+            data: (jobs) {
+              if (jobs.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24.h),
+                    child: Text(
+                      'No jobs available',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
                 );
-              },
+              }
+              
+              // Take only the most recent 5 jobs
+              final recentJobs = jobs.take(5).toList();
+              
+              return SizedBox(
+                height: 150.h,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: recentJobs.length,
+                  itemBuilder: (context, index) {
+                    final job = recentJobs[index];
+                    return _buildJobCard(
+                      job.title,
+                      '₹${job.price?.toString() ?? "N/A"}',
+                      job.date != null ? timeAgo(job.date!) : 'Recent',
+                      job.id,
+                    );
+                  },
+                ),
+              );
+            },
+            loading: () => SizedBox(
+              height: 150.h,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            error: (error, _) => Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24.h),
+                child: Text(
+                  'Error loading jobs: $error',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: Colors.red,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
           ),
         ],
@@ -512,9 +716,10 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  Widget _buildJobCard(String title, String price, String time) {
+  // Individual job card in horizontal list
+  Widget _buildJobCard(String title, String price, String time, String jobId) {
     return Container(
-      width: 140.w, // Fixed width to prevent overflow
+      width: 140.w, 
       margin: EdgeInsets.only(right: 12.w),
       decoration: BoxDecoration(
         color: Colors.blue[300],
@@ -525,14 +730,15 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
         borderRadius: BorderRadius.circular(8.r),
         child: InkWell(
           onTap: () {
-            debugPrint('$title job card tapped');
+            // Navigate to job details page
+            context.pushNamed('job_details', pathParameters: {'jobId': jobId});
           },
           borderRadius: BorderRadius.circular(8.r),
           child: Padding(
             padding: EdgeInsets.all(12.r),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // Use minimum height needed
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
                   child: Column(
@@ -571,7 +777,8 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                 SizedBox(height: 12.h),
                 ElevatedButton(
                   onPressed: () {
-                    debugPrint('Apply for $title');
+                    // Navigate to job details for application
+                    context.pushNamed('job_details', pathParameters: {'jobId': jobId});
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -646,15 +853,91 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
     );
   }
 
-  // Job Detail Card
-  Widget _buildJobDetailCard() {
+  // List of jobs based on selected filter tab
+  Widget _buildJobList(String userId, AsyncValue<List<Job>> allJobsAsync) {
+    return allJobsAsync.when(
+      data: (allJobs) {
+        // Filter jobs based on the selected tab
+        List<Job> filteredJobs;
+        
+        switch (_selectedTabIndex) {
+          case 0: // All jobs
+            filteredJobs = allJobs;
+            break;
+          case 1: // Applied jobs
+            filteredJobs = allJobs.where((job) => 
+                job.applicantIds != null && 
+                job.applicantIds!.contains(userId)).toList();
+            break;
+          case 2: // Recommended jobs - based on job categories
+            // In a real app you'd use a more sophisticated recommendation algorithm
+            filteredJobs = allJobs.where((job) => job.status == 'open').toList();
+            break;
+          default:
+            filteredJobs = allJobs;
+        }
+        
+        if (filteredJobs.isEmpty) {
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.work_outline,
+                    size: 48.sp,
+                    color: Colors.grey[400],
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'No jobs found',
+                    style: TextStyle(
+                      fontSize: 16.sp,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Column(
+            children: filteredJobs.take(5).map((job) => _buildJobListItem(job)).toList(),
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.r),
+          child: Text(
+            'Error loading jobs: $error',
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.red,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Individual job item in vertical list
+  Widget _buildJobListItem(Job job) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      padding: EdgeInsets.only(bottom: 16.h),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            debugPrint('Job detail card tapped');
+            context.pushNamed(
+              JobDetailsScreen.routeName, 
+              pathParameters: {'jobId': job.id}
+            );
           },
           borderRadius: BorderRadius.circular(8.r),
           child: Ink(
@@ -682,18 +965,25 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                           CircleAvatar(
                             radius: 16.r,
                             backgroundColor: Colors.blue[100],
-                            child: Text(
-                              'MJ',
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.sp,
-                              ),
-                            ),
+                            backgroundImage: job.recruiterImageUrl != null
+                                ? NetworkImage(job.recruiterImageUrl!)
+                                : null,
+                            child: job.recruiterImageUrl == null
+                                ? Text(
+                                    (job.recruiterName?.isNotEmpty == true)
+                                        ? job.recruiterName![0].toUpperCase()
+                                        : 'R',
+                                    style: TextStyle(
+                                      color: Colors.blue[700],
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.sp,
+                                    ),
+                                  )
+                                : null,
                           ),
                           SizedBox(width: 8.w),
                           Text(
-                            'Mr. John',
+                            job.recruiterName ?? 'Recruiter',
                             style: TextStyle(
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w500,
@@ -704,13 +994,13 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                         decoration: BoxDecoration(
-                          color: Colors.red[50],
+                          color: _getStatusColor(job.status ?? 'open').withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4.r),
                         ),
                         child: Text(
-                          'Pending',
+                          _formatStatus(job.status ?? 'open'),
                           style: TextStyle(
-                            color: Colors.red,
+                            color: _getStatusColor(job.status ?? 'open'),
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w500,
                           ),
@@ -720,7 +1010,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                   ),
                   SizedBox(height: 12.h),
                   Text(
-                    'Shopping Fruits',
+                    job.title,
                     style: TextStyle(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
@@ -728,7 +1018,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                   ),
                   SizedBox(height: 8.h),
                   Text(
-                    'Shopping is a delightful way to discover new things and treat yourself to others...',
+                    job.description,
                     style: TextStyle(
                       fontSize: 14.sp,
                       color: Colors.grey[600],
@@ -741,7 +1031,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '\$5000',
+                        '₹${job.price?.toString() ?? "N/A"}',
                         style: TextStyle(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
@@ -750,7 +1040,16 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                       ),
                       ElevatedButton(
                         onPressed: () {
-                          debugPrint('View Details tapped');
+                          // Updated to navigate with the contactNumber parameter
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => JobDetailsScreen(
+                                isRecruiter: false,
+                                contactNumber: job.contactNo,
+                                jobId: job.id,
+                              ),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E3A5F),
@@ -763,7 +1062,7 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        child: const Text('View Details', style: TextStyle(color: Colors.white),),
+                        child: const Text('View Details'),
                       ),
                     ],
                   ),
@@ -774,5 +1073,55 @@ class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
         ),
       ),
     );
+  }
+  
+  // Helper to format job status
+  String _formatStatus(String status) {
+    switch (status) {
+      case 'open':
+        return 'Open';
+      case 'in-progress':
+        return 'In Progress';
+      case 'completed':
+        return 'Completed';
+      default:
+        return status[0].toUpperCase() + status.substring(1);
+    }
+  }
+  
+  // Helper to get status color
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'open':
+        return Colors.green;
+      case 'in-progress':
+        return Colors.blue;
+      case 'completed':
+        return Colors.purple;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+  
+  // Helper to format time ago
+  String timeAgo(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays > 365) {
+      return '${(difference.inDays / 365).floor()} ${(difference.inDays / 365).floor() == 1 ? 'year' : 'years'} ago';
+    } else if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()} ${(difference.inDays / 30).floor() == 1 ? 'month' : 'months'} ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} ${difference.inMinutes == 1 ? 'minute' : 'minutes'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 }

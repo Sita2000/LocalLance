@@ -7,10 +7,11 @@ import 'package:intl/intl.dart';
 import '../../controllers/job_controller.dart';
 import '../../auth_screen/controllers/auth_controller.dart';
 import '../../db/models/job_model.dart';
+import 'package:mylocallance/views/job_recruiter/job_details_screen.dart' as recruiter;
 
 class MyJobScreen extends ConsumerWidget {
   static const String routePath = '/myjob_screen';
-  static const String routeName = 'My Job';
+  static const String routeName = 'MyJob';
 
   const MyJobScreen({super.key});
 
@@ -354,14 +355,16 @@ class MyJobScreen extends ConsumerWidget {
                       color: Colors.grey[600],
                     ),
                     SizedBox(width: 4.w),
-                    Text(
-                      'Posted $formattedDate${daysSincePosted > 0 ? ' • Updated ${daysSincePosted == 1 ? "1 day" : "$daysSincePosted days"} ago' : ''}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12.sp,
-                        color: Colors.grey[600],
+                    Expanded(
+                      child: Text(
+                        'Posted $formattedDate${daysSincePosted > 0 ? ' • Updated ${daysSincePosted == 1 ? "1 day" : "$daysSincePosted days"} ago' : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12.sp,
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -415,10 +418,11 @@ class MyJobScreen extends ConsumerWidget {
                 TextButton(
                   onPressed: () {
                     // Navigate to job details using GoRouter with job ID
-                    context.pushNamed(
-                      'job_details',
-                      pathParameters: {'jobId': job.id},
-                    );
+                    // context.go('/recruiter/job_details/${job.id}');
+                    //use route 1.0
+                    Navigator.push(context,MaterialPageRoute(
+                      builder: (context) => recruiter.JobDetailsScreen(jobId: job.id),
+                    ));
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF1E3A5F),

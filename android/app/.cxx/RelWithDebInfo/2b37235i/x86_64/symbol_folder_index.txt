@@ -1,0 +1,1 @@
+/home/viku/college-projects/LocalLance/build/app/intermediates/cxx/RelWithDebInfo/2b37235i/obj/x86_64

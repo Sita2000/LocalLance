@@ -1,7 +1,10 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mylocallance/views/job_recruiter/job_details_screen.dart';
 import 'package:mylocallance/views/job_recruiter/job_post_screen.dart';
 import 'package:mylocallance/views/job_recruiter/myjob_screen.dart';
 import 'package:mylocallance/views/job_recruiter/profile_screen.dart';
@@ -25,6 +28,7 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String? _searchQuery;
   bool _isLoading = false;
+  int _selectedIndex = 0; // Track selected navigation item
   
   void _showJobRecruiterDrawer(BuildContext context) {
     // Get current user
@@ -278,6 +282,26 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
     );
   }
 
+  // Handle bottom navigation tap
+  void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+    
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    switch (index) {
+      case 0: // Home
+        break; // Already on home screen
+      case 1: // Post Job
+        context.push(JobPostScreen.routePath);
+        break;
+      case 2: // Profile
+        context.pushNamed(RecruiterProfileScreen.routeName);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Get current user
@@ -464,11 +488,28 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
                 ),
               ),
             ),
-            
-           
           ],
         ),
       ),
+      // bottomNavigationBar: BottomNavigationBar(
+      //   items: const [
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.home),
+      //       label: 'Home',
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.work),
+      //       label: 'Post Job',
+      //     ),
+      //     BottomNavigationBarItem(
+      //       icon: Icon(Icons.person),
+      //       label: 'Profile',
+      //     ),
+      //   ],
+      //   currentIndex: _selectedIndex,
+      //   selectedItemColor: const Color(0xFF1E3A5F),
+      //   onTap: _onItemTapped,
+      // ),
     );
   }
 
@@ -566,7 +607,9 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => context.pushNamed(MyJobScreen.routeName),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (context) => const MyJobScreen(),
+                    )),
                     child: Text(
                       "View All",
                       style: GoogleFonts.poppins(
@@ -795,7 +838,7 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
   }) {
     return GestureDetector(
       onTap: () {
-        context.goNamed('job_details', pathParameters: {'jobId': jobId});
+        Navigator.push(context, MaterialPageRoute(builder: (context)=> JobDetailsScreen(jobId: jobId)));
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -919,7 +962,7 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
               // Description
               Text(
                 description.length > 100 
-                    ? description.substring(0, 100) + '...'
+                    ? '${description.substring(0, 100)}...'
                     : description,
                 style: GoogleFonts.poppins(
                   fontSize: 12,
@@ -945,7 +988,7 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
                     ),
                   ),
                   Text(
-                    "\$ $price",
+                    "₹ $price",
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -1016,19 +1059,3 @@ class _RecruiterHomePageState extends ConsumerState<RecruiterHomePage> {
     );
   }
 }
-
-// class RecruiterJobDetailsScreen extends StatelessWidget {
-//   final String jobId;
-//   const RecruiterJobDetailsScreen({required this.jobId, Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     // Fetch job details using jobId, or display job info
-//     return Scaffold(
-//       appBar: AppBar(title: Text('Job Details')),
-//       body: Center(
-//         child: Text('Job ID: $jobId'),
-//       ),
-//     );
-//   }
-// }

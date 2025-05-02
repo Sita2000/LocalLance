@@ -45,6 +45,8 @@ dependencies:
   cloud_firestore: ^5.6.6
   logger: ^2.5.0
   intl: ^0.20.2
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.3.1 # Added for phone call functionality
 
 dev_dependencies:
   flutter_test:

@@ -3,24 +3,28 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
-import '../../auth_screen/controllers/user_controller.dart';
+import 'package:mylocallance/views/freelancer/freelancer_bottom_nav_page.dart';
+import 'package:mylocallance/views/job_recruiter/recruiter_bottom_nav_page.dart';
+import '../../auth_screen/controllers/user_controller.dart' as user_controller;
 import '../../db/models/user_model.dart';
-import '../../../auth_screen/controllers/auth_controller.dart';
+import '../../auth_screen/controllers/auth_controller.dart';
+import '../../services/user_preferences_service.dart';
 
 class LoginScreenV2 extends ConsumerWidget {
   final logger = Logger();
+  final UserPreferencesService _prefsService = UserPreferencesService();
   LoginScreenV2({super.key});
 
   void _handleGoogleSignIn(BuildContext context, WidgetRef ref, String role) async {
     final signIn = ref.read(googleSignInProvider);
-    final userNotifier = ref.read(userProvider.notifier);
+    final userNotifier = ref.read(user_controller.userProvider.notifier);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     final cred = await signIn();
     if (cred != null && cred.user != null) {
       final user = cred.user!;
       // Check if user exists in Firestore
-      final existing = await ref.read(userDatabaseProvider).getUser(user.uid);
+      final existing = await ref.read(user_controller.userDatabaseProvider).getUser(user.uid);
       if (existing == null) {
         // Create new user in Firestore
         final appUser = AppUser(
@@ -38,8 +42,17 @@ class LoginScreenV2 extends ConsumerWidget {
         );
         return;
       }
+      
+      // Save user role and ID in SharedPreferences
+      final userRole = role == 'job_recruiter' 
+          ? UserPreferencesService.roleRecruiter 
+          : UserPreferencesService.roleFreelancer;
+      await _prefsService.saveUserRole(userRole);
+      await _prefsService.saveUserId(user.uid);
+      
       logger.d('User signed in: ${user.displayName}');
       logger.d("User Role: $role");
+      
       if(!context.mounted){
         // show snackbar
         scaffoldMessenger.showSnackBar(
@@ -47,21 +60,56 @@ class LoginScreenV2 extends ConsumerWidget {
         );
         return;
       }
+      
       if(role == 'job_recruiter') {
-        // Navigate to recruiter-specific screen
-        context.go('/freelancer/dashboard');
+        // Navigate to recruiter home screen
+        context.go(RecruiterBottomNavPage.routeName);
         return;
       } else if(role == 'freelancer') {
-        // Navigate to freelancer-specific screen
-        context.go('/freelancer/dashboard');
+        // Navigate to freelancer dashboard
+        context.go(FreelancerBottomNavPage.routeName);
         return;
       }
-      // Navigate to home or role-specific screen
-      context.go('/home');
+      
+      // Fallback navigation
+      context.go('/');
     } else {
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Google sign-in failed.')),
       );
+    }
+  }
+
+  // Regular email/password login
+  void _handleEmailSignIn(BuildContext context, WidgetRef ref, String email, String password, String role) async {
+    try {
+      final authController = ref.read(authControllerProvider.notifier);
+      final userCred = await authController.signInWithEmailAndPassword(email, password);
+      
+      if (userCred.user != null) {
+        final user = userCred.user!;
+        
+        // Save user role and ID in SharedPreferences
+        final userRole = role == 'job_recruiter' 
+            ? UserPreferencesService.roleRecruiter 
+            : UserPreferencesService.roleFreelancer;
+        await _prefsService.saveUserRole(userRole);
+        await _prefsService.saveUserId(user.uid);
+        
+        if (context.mounted) {
+          if (role == 'job_recruiter') {
+            context.go('/recruiter_home');
+          } else {
+            context.go('/freelancer/dashboard');
+          }
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: ${e.toString()}')),
+        );
+      }
     }
   }
 
