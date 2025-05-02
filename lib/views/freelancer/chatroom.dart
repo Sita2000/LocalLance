@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ChatroomScreen extends StatefulWidget {
+  static const String routePath = '/freelancer/chatroom';
+  static const String routeName = 'freelancer_chatroom';
   const ChatroomScreen({Key? key}) : super(key: key);
 
   @override

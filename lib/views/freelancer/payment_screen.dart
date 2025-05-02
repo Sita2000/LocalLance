@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class PaymentScreen extends StatelessWidget {
+  static const String routePath = '/freelancer/payment';
+  static const String routeName = 'freelancer_payment';
   const PaymentScreen({super.key});
 
   @override

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ReviewScreen extends StatefulWidget {
+  static const String routePath = '/freelancer/review';
+  static const String routeName = 'freelancer_review';
   const ReviewScreen({super.key});
 
   @override

@@ -1,50 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+class FreelancerProfileScreen extends StatelessWidget {
+  static const String routePath = '/freelancer/profile';
+  static const String routeName = 'freelancer_profile';
+  const FreelancerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black87,
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Center(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Container(
+            width: double.infinity,
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 32.h, // Account for SafeArea padding
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20.r),
             ),
-            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 16.h),
             child: Column(
               children: [
                 // Header section
                 _buildHeader(),
                 
                 // Main content
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 16.h),
-                          _buildStatsRow(),
-                          SizedBox(height: 24.h),
-                          _buildJobCategorySection(),
-                          SizedBox(height: 24.h),
-                          _buildProfileDetailsSection(),
-                          SizedBox(height: 24.h),
-                        ],
-                      ),
-                    ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 16.h),
+                      _buildStatsRow(),
+                      SizedBox(height: 24.h),
+                      _buildJobCategorySection(),
+                      SizedBox(height: 24.h),
+                      _buildProfileDetailsSection(),
+                      SizedBox(height: 24.h),
+                    ],
                   ),
                 ),
-                
-                // Bottom navigation bar
-                _buildBottomNavigationBar(),
               ],
             ),
           ),
@@ -166,13 +165,18 @@ class ProfileScreen extends StatelessWidget {
 
   // Stats row with Total Jobs, Earnings, and Ratings
   Widget _buildStatsRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildStatCard('76', 'Total Jobs'),
-        _buildStatCard('\$276', 'Earnings'),
-        _buildStatCard('★ 4.7', 'Rating'),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          _buildStatCard('76', 'Total Jobs'),
+          SizedBox(width: 12.w),
+          _buildStatCard('₹276', 'Earnings'),
+          SizedBox(width: 12.w),
+          _buildStatCard('★ 4.7', 'Rating'),
+        ],
+      ),
     );
   }
 
@@ -180,7 +184,7 @@ class ProfileScreen extends StatelessWidget {
   Widget _buildStatCard(String value, String label) {
     return Container(
       width: 100.w,
-      padding: EdgeInsets.symmetric(vertical: 16.h),
+      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 8.w),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12.r),
@@ -195,6 +199,7 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             value,
@@ -296,13 +301,9 @@ class ProfileScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildProfileDetailItem('Working Skills', 'Photoshop'),
+        _buildProfileDetailItem('Photoshop', 'Expert Level'),
         SizedBox(height: 16.h),
-        _buildProfileDetailItem('Profession', 'Freelancer'),
-        SizedBox(height: 16.h),
-        _buildProfileDetailItem('Resume', 'Link to resume'),
-        SizedBox(height: 16.h),
-        _buildProfileDetailItem('Phone Number', '1234567890'),
+        _buildProfileDetailItem('Phone', '1234567890'),
         SizedBox(height: 16.h),
         _buildProfileDetailItem('Gender', 'Female'),
       ],
@@ -312,6 +313,7 @@ class ProfileScreen extends StatelessWidget {
   // Individual profile detail item
   Widget _buildProfileDetailItem(String label, String value) {
     return Container(
+      width: double.infinity,
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
         color: Colors.grey[50],
@@ -346,6 +348,8 @@ class ProfileScreen extends StatelessWidget {
                     ? TextDecoration.underline
                     : TextDecoration.none,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           
@@ -357,54 +361,6 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  // Bottom Navigation Bar
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 8.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.home, 'Home', false),
-          _buildNavItem(Icons.work, 'My Jobs', false),
-          _buildNavItem(Icons.person, 'Profile', true),
-        ],
-      ),
-    );
-  }
-
-  // Individual bottom navigation item
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 24.sp,
-          color: isActive ? const Color(0xFF1E3A5F) : Colors.grey,
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.sp,
-            color: isActive ? const Color(0xFF1E3A5F) : Colors.grey,
-            fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
-          ),
-        ),
-      ],
     );
   }
 }

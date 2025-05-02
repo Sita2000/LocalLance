@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class NotificationsScreen extends StatelessWidget {
-  const NotificationsScreen({Key? key}) : super(key: key);
+  static const String routePath = '/freelancer/notifications';
+  static const String routeName = 'freelancer_notifications';
+  const NotificationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

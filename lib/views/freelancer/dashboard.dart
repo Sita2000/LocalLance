@@ -1,32 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mylocallance/views/freelancer/chatlist_screen.dart';
+import 'package:mylocallance/views/freelancer/my_job_screen.dart';
 import 'package:mylocallance/views/freelancer/payment_screen.dart';
+import 'package:mylocallance/views/freelancer/profile_screen.dart';
 import 'package:mylocallance/views/freelancer/review_screen.dart';
+import 'package:mylocallance/providers/freelancer_bottom_nav_provider.dart';
 
-class FreelancerDashboard extends StatefulWidget {
+class FreelancerDashboard extends ConsumerStatefulWidget {
+  static const routePath = '/freelancer/dashboard';
+  static const routeName = 'freelancer_dashboard';
   const FreelancerDashboard({super.key});
 
   @override
-  State<FreelancerDashboard> createState() => _FreelancerDashboardState();
+  ConsumerState<FreelancerDashboard> createState() => _FreelancerDashboardState();
 }
 
-class _FreelancerDashboardState extends State<FreelancerDashboard> {
+class _FreelancerDashboardState extends ConsumerState<FreelancerDashboard> {
   int _selectedTabIndex = 0;
   final List<String> _tabTitles = ['All', 'Applied (10)', 'Recommended Jobs'];
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
+    final selectedItem = ref.watch(freelancerBottomNavProvider);
+
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Colors.black87,
+      backgroundColor: Colors.white,
       drawer: _buildDrawer(),
       body: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20.r),
         ),
-        margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 16.h),
         child: Column(
           children: [
             // Top section with app bar and search
@@ -47,11 +57,10 @@ class _FreelancerDashboardState extends State<FreelancerDashboard> {
                 ),
               ),
             ),
-            // Bottom navigation bar
-            _buildBottomNavigationBar(),
           ],
         ),
       ),
+      
     );
   }
 
@@ -754,7 +763,7 @@ class _FreelancerDashboardState extends State<FreelancerDashboard> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        child: const Text('View Details'),
+                        child: const Text('View Details', style: TextStyle(color: Colors.white),),
                       ),
                     ],
                   ),
@@ -763,57 +772,6 @@ class _FreelancerDashboardState extends State<FreelancerDashboard> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  // Bottom Navigation Bar
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      height: 60.h,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildNavBarItem(Icons.home, 'Home', true),
-          _buildNavBarItem(Icons.work, 'My Jobs', false),
-          _buildNavBarItem(Icons.person, 'Profile', false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavBarItem(IconData icon, String label, bool isActive) {
-    return InkWell(
-      onTap: () {
-        debugPrint('$label tapped');
-      },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: isActive ? const Color(0xFF1E3A5F) : Colors.grey,
-            size: 24.sp,
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: isActive ? const Color(0xFF1E3A5F) : Colors.grey,
-              fontSize: 12.sp,
-              fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -3,7 +3,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class JobDetailsScreen extends StatelessWidget {
-  const JobDetailsScreen({Key? key, required bool isRecruiter}) : super(key: key);
+  static const String routePath = '/freelancer/jobs';
+  static const String routeName = 'freelancer_jobs';
+  
+  final bool isRecruiter;
+  
+  const JobDetailsScreen({super.key, required this.isRecruiter});
 
   @override
   Widget build(BuildContext context) {
